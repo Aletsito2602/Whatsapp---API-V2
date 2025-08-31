@@ -1,54 +1,297 @@
 import express from 'express';
 import cors from 'cors';
-import makeWASocket, { useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys';
+import makeWASocket, { useMultiFileAuthState, DisconnectReason, downloadMediaMessage } from '@whiskeysockets/baileys';
 import QRCode from 'qrcode';
 import qrTerminal from 'qrcode-terminal';
 import { Boom } from '@hapi/boom';
 import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 
 const app = express();
 const port = 3001;
 
-// Middleware
-app.use(cors());
+// Middleware - CORS configurado para permitir archivos locales
+app.use(cors({
+  origin: true, // Permitir cualquier origen (incluyendo file://)
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'x-api-key']
+}));
 app.use(express.json());
 
-// Storage para sesiones
-const sessions = new Map();
-const sockets = new Map();
-const pairingCodes = new Map();
+// SEGURIDAD: API Key Authentication
+const API_KEYS = new Set([
+  'sk-setter-2024-prod-key-12345',
+  'sk-setter-2024-dev-key-67890',
+  process.env.SETTER_API_KEY || 'test-api-key-12345'
+]);
+
+// Middleware de autenticación
+function authenticateAPIKey(req, res, next) {
+  const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+  
+  if (!apiKey) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: 'MISSING_API_KEY',
+        message: 'API key required. Use X-API-Key header or Authorization: Bearer <key>',
+        timestamp: new Date()
+      }
+    });
+  }
+
+  if (!API_KEYS.has(apiKey)) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: 'INVALID_API_KEY',
+        message: 'Invalid API key',
+        timestamp: new Date()
+      }
+    });
+  }
+
+  // Log del uso de API
+  console.log(`🔑 API request from key: ${apiKey.substring(0, 15)}... at ${new Date().toISOString()}`);
+  req.apiKey = apiKey;
+  next();
+}
+
+// Rate limiting simple (en producción usar redis)
+const rateLimitMap = new Map();
+function rateLimit(req, res, next) {
+  const clientId = req.apiKey || req.ip;
+  const now = Date.now();
+  const windowMs = 60000; // 1 minuto
+  const maxRequests = 100; // 100 requests por minuto
+
+  if (!rateLimitMap.has(clientId)) {
+    rateLimitMap.set(clientId, { count: 1, resetTime: now + windowMs });
+  } else {
+    const clientData = rateLimitMap.get(clientId);
+    if (now > clientData.resetTime) {
+      clientData.count = 1;
+      clientData.resetTime = now + windowMs;
+    } else {
+      clientData.count++;
+    }
+
+    if (clientData.count > maxRequests) {
+      return res.status(429).json({
+        success: false,
+        error: {
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: `Too many requests. Limit: ${maxRequests} per minute`,
+          timestamp: new Date()
+        }
+      });
+    }
+  }
+
+  next();
+}
+
+// Storage para sesiones - SIGUIENDO MEJORES PRÁCTICAS PARA PRODUCCIÓN
+const sessions = new Map(); // sessionId -> session data
+const sockets = new Map();  // sessionId -> socket instance
+const pairingCodes = new Map(); // sessionId -> pairing code data
+const sessionManagers = new Map(); // sessionId -> session manager
+const messageHistory = new Map(); // sessionId -> messages array (en producción usar DB)
+
+// Session Manager Class - SINGLETON PATTERN para cada sesión
+class SessionManager {
+  constructor(sessionId, config = {}) {
+    this.sessionId = sessionId;
+    this.socket = null;
+    this.state = null;
+    this.isConnecting = false;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = config.maxReconnectAttempts || 5;
+    this.reconnectInterval = config.reconnectInterval || 5000;
+    this.autoReconnect = config.autoReconnect !== false;
+    this.lastActivity = new Date();
+    this.messageQueue = []; // Cola de mensajes pendientes
+  }
+
+  updateActivity() {
+    this.lastActivity = new Date();
+  }
+
+  isActive() {
+    return this.socket && sessions.get(this.sessionId)?.status === 'connected';
+  }
+
+  // Cleanup method para liberar recursos
+  cleanup() {
+    try {
+      if (this.socket) {
+        this.socket.end();
+        this.socket = null;
+      }
+      this.messageQueue = [];
+      this.isConnecting = false;
+    } catch (error) {
+      console.warn(`⚠️ Error durante cleanup de sesión ${this.sessionId}:`, error.message);
+    }
+  }
+}
+
+// Factory para crear Session Managers
+function getOrCreateSessionManager(sessionId, config = {}) {
+  if (!sessionManagers.has(sessionId)) {
+    sessionManagers.set(sessionId, new SessionManager(sessionId, config));
+    console.log(`🏭 Session Manager creado para ${sessionId}`);
+  }
+  return sessionManagers.get(sessionId);
+}
 
 // Configuración de Gemini AI
 const GEMINI_API_KEY = 'AIzaSyAKq_7car-bCXq9sOEPKMiua5OXh3--UTY';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
+// Configuración de Supabase - TUS CREDENCIALES
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://bqitfhvaejxcyvjszfom.supabase.co';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxaXRmaHZhZWp4Y3l2anN6Zm9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5MzkwMzMsImV4cCI6MjA2OTUxNTAzM30.BbvZctdOB8lJwiocMnt9XwzD8FHpyz5V3Y9ERvfQACA';
+
+// Cliente de Supabase
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+console.log('🗄️ Supabase configurado:', {
+  url: SUPABASE_URL.substring(0, 30) + '...',
+  hasKey: !!SUPABASE_ANON_KEY
+});
+
 // Configuración de auto-respuesta (se actualizará desde el frontend)
 let autoResponseConfig = {
-  enabled: true,
+  enabled: false, // DESHABILITADO - solo usar agentes específicos de Supabase
   triggerWord: 'setter',
   prompt: 'Eres un asistente de IA llamado Setter. Responde de manera útil y amigable en español. Mantén tus respuestas concisas pero informativas. Siempre termina con un emoji relacionado al tema.'
 };
 
-// Función para llamar a Gemini API usando fetch global (Node 18+)
-async function callGeminiAPI(userMessage) {
+// Función para obtener agente activo por trigger (adaptada a tu estructura)
+async function getActiveAgentByTrigger(trigger, sessionId = null, userId = null) {
   try {
+    console.log(`🔍 Buscando agente para trigger: "${trigger}", userId: ${userId}`);
+    
+    // Buscar en la tabla agents usando tu estructura
+    let query = supabase
+      .from('agents')
+      .select('*')
+      .eq('is_active', true);
+
+    // Filtrar por usuario si está disponible (solo si es UUID válido)
+    if (userId && userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      query = query.eq('user_id', userId);
+    }
+    // Si userId no es válido o no existe, buscar agentes sin user_id (globales)
+
+    const { data: agents, error } = await query;
+
+    if (error) {
+      console.error('Error query agents:', error);
+      return null;
+    }
+
+    console.log(`📋 Found ${agents?.length || 0} active agents`);
+
+    // Buscar agente que tenga el trigger en su config
+    for (const agent of agents || []) {
+      const config = agent.config || {};
+      
+      // Buscar en triggers de automation (maneja objetos y strings)
+      const triggers = config.automation?.actionTriggers || [];
+      const foundByTriggers = triggers.some(t => {
+        if (typeof t === 'string') {
+          return t.toLowerCase().includes(trigger.toLowerCase());
+        } else if (t && t.keyword) {
+          // Manejar formato: {type: 'contains', keyword: 'Hola', priority: 5}
+          return t.keyword.toLowerCase().includes(trigger.toLowerCase());
+        }
+        return false;
+      });
+      
+      if (foundByTriggers) {
+        console.log(`✅ Found agent by actionTriggers: ${agent.name}`);
+        return agent;
+      }
+      
+      // Buscar en knowledge Q&As
+      const qandas = config.knowledge?.qandas || [];
+      const foundByQA = qandas.some(qa => {
+        return qa.question && qa.question.toLowerCase().includes(trigger.toLowerCase());
+      });
+      
+      if (foundByQA) {
+        console.log(`✅ Found agent by knowledge Q&A: ${agent.name}`);
+        return agent;
+      }
+      
+      // Buscar por nombre del agente
+      if (agent.name.toLowerCase().includes(trigger.toLowerCase())) {
+        console.log(`✅ Found agent by name: ${agent.name}`);
+        return agent;
+      }
+    }
+
+    // NO usar fallback - solo responder si hay match específico
+    console.log(`❌ No se encontró agente específico para trigger: "${trigger}"`);
+    
+    // Comentado: No usar fallback automático
+    // if (agents && agents.length > 0) {
+    //   console.log(`🔄 Using fallback agent: ${agents[0].name}`);
+    //   return agents[0];
+    // }
+    
+    return null;
+  } catch (error) {
+    console.error('Error obteniendo agente:', error);
+    return null;
+  }
+}
+
+// Función para actualizar estadísticas del agente (adaptada a tu estructura)
+async function updateAgentStats(agentId) {
+  try {
+    await supabase
+      .from('agents')
+      .update({
+        message_count: supabase.raw('message_count + 1'),
+        last_message_at: new Date().toISOString(),
+        metrics_updated_at: new Date().toISOString()
+      })
+      .eq('id', agentId);
+      
+    console.log(`📊 Estadísticas actualizadas para agente: ${agentId}`);
+  } catch (error) {
+    console.error('Error actualizando estadísticas del agente:', error);
+  }
+}
+
+// Función para llamar a Gemini API con prompt del agente (adaptada a tu estructura)
+async function callGeminiAPIWithAgent(userMessage, agent = null) {
+  try {
+    // Extraer prompt del agente usando tu estructura de config
+    let prompt = autoResponseConfig.prompt; // fallback
+    
+    if (agent?.config?.persona?.instructions) {
+      prompt = agent.config.persona.instructions;
+      console.log(`🤖 Usando prompt del agente: ${agent.name}`);
+    } else if (agent?.config?.persona?.systemMessage && agent.config.persona.systemMessage !== 'Sin especificar') {
+      prompt = agent.config.persona.systemMessage;
+    }
+    
     const requestBody = {
       contents: [{
         parts: [{
-          text: `${autoResponseConfig.prompt}\n\nMensaje del usuario: ${userMessage}`
+          text: `${prompt}\n\nMensaje del usuario: ${userMessage}`
         }]
       }]
     };
 
-    console.log('🔗 Calling Gemini API...');
-    console.log('📝 URL:', GEMINI_API_URL);
-    console.log('🔑 API Key (first 20 chars):', GEMINI_API_KEY.substring(0, 20) + '...');
-    console.log('📝 Request:', JSON.stringify(requestBody, null, 2));
-
-    // Test con curl command equivalente para debug
-    const curlCommand = `curl -X POST "${GEMINI_API_URL}" -H "Content-Type: application/json" -H "x-goog-api-key: ${GEMINI_API_KEY}" -d '${JSON.stringify(requestBody)}'`;
-    console.log('🐚 Equivalent curl command:');
-    console.log(curlCommand);
+    console.log(`🧠 Calling Gemini API with agent: ${agent?.name || 'default'}...`);
 
     const response = await fetch(GEMINI_API_URL, {
       method: 'POST',
@@ -59,24 +302,21 @@ async function callGeminiAPI(userMessage) {
       body: JSON.stringify(requestBody)
     });
 
-    console.log(`📡 Response status: ${response.status} ${response.statusText}`);
-    console.log(`📡 Response headers:`, Object.fromEntries(response.headers.entries()));
-
-    const responseText = await response.text();
-    console.log('📄 Raw response:', responseText);
-
     if (!response.ok) {
-      console.error('❌ Gemini API error response:', responseText);
-      throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${responseText}`);
+      const errorText = await response.text();
+      throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    const data = JSON.parse(responseText);
-    console.log('✅ Gemini response parsed:', JSON.stringify(data, null, 2));
-    
+    const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
     if (!text) {
       throw new Error('No text response from Gemini');
+    }
+    
+    // Actualizar estadísticas del agente si se usó uno específico
+    if (agent?.id) {
+      await updateAgentStats(agent.id);
     }
     
     return text.trim();
@@ -95,15 +335,19 @@ async function ensureAuthDir(sessionId) {
   return authDir;
 }
 
-// Health check
+// Health check (público, sin autenticación)
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date(),
     version: '1.0.0',
-    sessions: sessions.size
+    sessions: sessions.size,
+    connectedSessions: Array.from(sessions.values()).filter(s => s.status === 'connected').length
   });
 });
+
+// APLICAR SEGURIDAD A TODAS LAS RUTAS DE API
+app.use('/api/v1', authenticateAPIKey, rateLimit);
 
 // Crear sesión
 app.post('/api/v1/sessions', async (req, res) => {
@@ -198,65 +442,65 @@ app.post('/api/v1/sessions/:sessionId/connect', async (req, res) => {
       });
     }
 
-    // Verificar si hay sockets activos y forzar delay MÁS LARGO
-    if (sockets.size > 0) {
-      console.log(`⚠️ Hay ${sockets.size} sesiones activas. Cerrando antes de crear nueva...`);
-      
-      // Cerrar todas las sesiones existentes
-      for (const [existingId, socket] of sockets) {
-        try {
-          console.log(`🛑 Cerrando socket existente: ${existingId}`);
-          socket.end(); // Solo end(), sin logout para evitar errores
-        } catch (error) {
-          console.warn(`Error cerrando sesión existente ${existingId}:`, error.message);
-        }
-      }
-      
-      sockets.clear();
-      sessions.clear();
-      pairingCodes.clear();
-      
-      // Esperar MÁS TIEMPO para que WhatsApp libere la conexión
-      console.log('⏳ Esperando 10 segundos para liberar conexiones...');
-      await new Promise(resolve => setTimeout(resolve, 10000));
-      console.log('🧹 Sesiones previas limpiadas, continuando...');
+    // PRODUCCIÓN: NO cerrar sesiones existentes - permitir múltiples instancias
+    console.log(`📊 Sesiones activas: ${sockets.size}`);
+    console.log(`📊 Session managers: ${sessionManagers.size}`);
+    
+    // Verificar si esta sesión específica ya está conectándose
+    const sessionManager = getOrCreateSessionManager(sessionId);
+    if (sessionManager.isConnecting) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'SESSION_CONNECTING', message: 'Session is already connecting', timestamp: new Date() }
+      });
     }
 
     console.log(`🔗 Conectando sesión: ${sessionId}`);
+    
+    // Marcar como conectándose en el session manager
+    sessionManager.isConnecting = true;
+    sessionManager.reconnectAttempts = 0;
     
     // Actualizar estado
     session.status = 'connecting';
     session.updatedAt = new Date();
     sessions.set(sessionId, session);
 
-    // Crear directorio de autenticación
+    // Crear directorio de autenticación - PRODUCCIÓN: cada sesión tiene su directorio
     const authDir = await ensureAuthDir(sessionId);
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
+    
+    // Guardar state en session manager
+    sessionManager.state = state;
 
-    // Crear socket con browser completamente único para cada sesión
-    const randomBrowser = [
-      ['Setter-Baileys', 'Chrome', `1.${Date.now()}.${Math.random().toString(36).substr(2, 5)}`],
-      ['WhatsApp-Web', 'Firefox', `2.${Date.now()}.${Math.random().toString(36).substr(2, 5)}`],
-      ['WA-Client', 'Safari', `3.${Date.now()}.${Math.random().toString(36).substr(2, 5)}`],
-      ['Baileys-App', 'Edge', `4.${Date.now()}.${Math.random().toString(36).substr(2, 5)}`]
+    // PRODUCCIÓN: Browser único y configuración optimizada para múltiples instancias
+    const selectedBrowser = [
+      `Setter-${sessionId}`, 
+      'Chrome', 
+      `${Date.now()}.${Math.random().toString(36).substr(2, 8)}`
     ];
-    const selectedBrowser = randomBrowser[Math.floor(Math.random() * randomBrowser.length)];
     
-    console.log(`🌐 Usando browser: ${selectedBrowser.join(' ')}`);
+    console.log(`🌐 Browser único para ${sessionId}: ${selectedBrowser.join(' ')}`);
     
-    // CORRIGIDO SEGÚN DOCUMENTACIÓN OFICIAL: configuración mínima
+    // CONFIGURACIÓN OPTIMIZADA PARA PRODUCCIÓN
     const socket = makeWASocket({
       auth: state,
-      printQRInTerminal: true,
+      printQRInTerminal: false, // Deshabilitado para múltiples instancias
       browser: selectedBrowser,
       generateHighQualityLinkPreview: false,
-      syncFullHistory: false,
+      syncFullHistory: false, // IMPORTANTE: No sincronizar historial completo
       markOnlineOnConnect: false,
+      shouldSyncHistoryMessage: () => false, // PRODUCCIÓN: No sincronizar mensajes
+      defaultQueryTimeoutMs: 60000, // Timeout más largo
+      connectTimeoutMs: 60000,
+      keepAliveIntervalMs: 30000,
       getMessage: async (key) => {
         return { conversation: 'Hello' };
       }
     });
 
+    // Guardar socket en session manager y mapa global
+    sessionManager.socket = socket;
     sockets.set(sessionId, socket);
 
     // Variable para datos de autenticación
@@ -444,14 +688,42 @@ app.post('/api/v1/sessions/:sessionId/connect', async (req, res) => {
                 
                 console.log(`📥 Mensaje recibido (reconectado) de ${senderName} (${senderJid}): ${messageText}`);
                 
-                // Verificar si la auto-respuesta está habilitada y si el mensaje contiene la palabra disparadora
-                if (autoResponseConfig.enabled && 
-                    messageText.toLowerCase().includes(autoResponseConfig.triggerWord.toLowerCase())) {
-                  console.log(`🤖 Trigger detectado en reconexión! Palabra: "${autoResponseConfig.triggerWord}" en mensaje: "${messageText}"`);
+                // USAR LA MISMA LÓGICA SUPABASE QUE EL HANDLER PRINCIPAL
+                if (!messageText || messageText.trim() === '') {
+                  console.log(`⚠️ Mensaje vacío ignorado (reconectado)`);
+                  return;
+                }
+
+                console.log(`🔍 Procesando auto-respuesta (reconectado) para: "${messageText}"`);
+                
+                // Buscar agentes activos por triggers (misma lógica que handler principal)
+                const words = messageText.toLowerCase().split(/\s+/);
+                let activeAgent = null;
+                let detectedTrigger = null;
+                
+                // Buscar si alguna palabra coincide con un trigger de agente
+                for (const word of words) {
+                  const agent = await getActiveAgentByTrigger(word, sessionId, session.userId);
+                  if (agent) {
+                    activeAgent = agent;
+                    detectedTrigger = word;
+                    break;
+                  }
+                }
+                
+                // También verificar configuración global como fallback
+                const hasGlobalTrigger = autoResponseConfig.enabled && 
+                  messageText.toLowerCase().includes(autoResponseConfig.triggerWord.toLowerCase());
+                
+                if (activeAgent || hasGlobalTrigger) {
+                  const triggerUsed = activeAgent?.name || autoResponseConfig.triggerWord;
+                  
+                  console.log(`🚀 TRIGGER DETECTADO (reconectado)! Trigger: "${detectedTrigger || autoResponseConfig.triggerWord}", Agente: ${activeAgent?.name || 'global'}`);
                   
                   try {
-                    // Llamar a Gemini API
-                    const geminiResponse = await callGeminiAPI(messageText);
+                    // Llamar a Gemini API con agente específico o configuración global
+                    console.log(`🧠 Llamando a Gemini API (reconectado) con agente: ${activeAgent?.name || 'default'}...`);
+                    const geminiResponse = await callGeminiAPIWithAgent(messageText, activeAgent);
                     
                     console.log(`🧠 Respuesta de Gemini (reconectado): ${geminiResponse}`);
                     
@@ -459,6 +731,11 @@ app.post('/api/v1/sessions/:sessionId/connect', async (req, res) => {
                     await newSocket.sendMessage(senderJid, { text: geminiResponse });
                     
                     console.log(`✅ Auto-respuesta enviada a ${senderName} (reconectado)`);
+                    
+                    // Actualizar estadísticas del agente si aplica
+                    if (activeAgent) {
+                      await updateAgentStats(activeAgent.id);
+                    }
                     
                   } catch (error) {
                     console.error(`❌ Error en auto-respuesta (reconectado):`, error);
@@ -517,6 +794,11 @@ app.post('/api/v1/sessions/:sessionId/connect', async (req, res) => {
       } else if (connection === 'open') {
         console.log(`✅ Sesión ${sessionId} conectada exitosamente!`);
         
+        // Actualizar session manager
+        sessionManager.isConnecting = false;
+        sessionManager.reconnectAttempts = 0;
+        sessionManager.updateActivity();
+        
         session.status = 'connected';
         session.phoneNumber = socket.user?.id?.split(':')[0];
         session.updatedAt = new Date();
@@ -526,6 +808,8 @@ app.post('/api/v1/sessions/:sessionId/connect', async (req, res) => {
         
         // Limpiar código de emparejamiento almacenado
         pairingCodes.delete(sessionId);
+        
+        console.log(`📊 Total de sesiones conectadas: ${Array.from(sessions.values()).filter(s => s.status === 'connected').length}`);
       }
     });
 
@@ -557,53 +841,131 @@ app.post('/api/v1/sessions/:sessionId/connect', async (req, res) => {
         // SIGUIENDO DOCUMENTACIÓN: Solo procesar mensajes de otros usuarios (no nuestros) y tipo 'notify'
         if (!message.key.fromMe && type === 'notify') {
           // SIGUIENDO DOCUMENTACIÓN: Manejar diferentes tipos de mensajes
-          const messageText = message.message?.conversation || 
-                            message.message?.extendedTextMessage?.text ||
-                            message.message?.imageMessage?.caption ||
-                            '';
+          // Extraer contenido del mensaje según tipo
+          let messageText = '';
+          let messageType = 'unknown';
+          let mediaData = null;
+
+          if (message.message?.conversation) {
+            messageText = message.message.conversation;
+            messageType = 'text';
+          } else if (message.message?.extendedTextMessage?.text) {
+            messageText = message.message.extendedTextMessage.text;
+            messageType = 'text';
+          } else if (message.message?.imageMessage) {
+            messageText = message.message.imageMessage.caption || '';
+            messageType = 'image';
+            mediaData = {
+              mimetype: message.message.imageMessage.mimetype,
+              fileLength: message.message.imageMessage.fileLength,
+              width: message.message.imageMessage.width,
+              height: message.message.imageMessage.height
+            };
+          } else if (message.message?.audioMessage) {
+            messageText = 'Audio message';
+            messageType = 'audio';
+            mediaData = {
+              mimetype: message.message.audioMessage.mimetype,
+              fileLength: message.message.audioMessage.fileLength,
+              seconds: message.message.audioMessage.seconds
+            };
+          } else if (message.message?.documentMessage) {
+            messageText = message.message.documentMessage.title || 'Document';
+            messageType = 'document';
+            mediaData = {
+              mimetype: message.message.documentMessage.mimetype,
+              fileLength: message.message.documentMessage.fileLength,
+              fileName: message.message.documentMessage.fileName
+            };
+          }
           
           const senderJid = message.key.remoteJid;
           const senderName = message.pushName || 'Usuario';
           
-          console.log(`📥 MENSAJE ENTRANTE de ${senderName} (${senderJid}): "${messageText}"`);
+          // GUARDAR MENSAJE EN HISTORIAL (en producción usar DB)
+          const messageData = {
+            id: message.key.id,
+            from: senderJid,
+            fromName: senderName,
+            type: messageType,
+            text: messageText,
+            mediaData,
+            timestamp: new Date(),
+            sessionId
+          };
+          
+          if (!messageHistory.has(sessionId)) {
+            messageHistory.set(sessionId, []);
+          }
+          messageHistory.get(sessionId).push(messageData);
+          
+          console.log(`📥 MENSAJE ENTRANTE (${messageType}) de ${senderName} (${senderJid}): "${messageText}"`);
           console.log(`🤖 Config auto-respuesta:`, {
             enabled: autoResponseConfig.enabled,
             triggerWord: autoResponseConfig.triggerWord,
             messageContainsTrigger: messageText ? messageText.toLowerCase().includes(autoResponseConfig.triggerWord.toLowerCase()) : false
           });
           
-          // Verificar si la auto-respuesta está habilitada y si el mensaje contiene la palabra disparadora
-          if (autoResponseConfig.enabled && 
-              messageText && messageText.toLowerCase().includes(autoResponseConfig.triggerWord.toLowerCase())) {
-            console.log(`🚀 TRIGGER DETECTADO! Palabra: "${autoResponseConfig.triggerWord}" en mensaje: "${messageText}"`);
+          // NUEVA LÓGICA: Buscar agentes activos por triggers en Supabase
+          if (messageText) {
+            // Buscar palabras triggers en el mensaje
+            const words = messageText.toLowerCase().split(/\s+/);
+            let activeAgent = null;
+            let detectedTrigger = null;
             
-            try {
-              // Llamar a Gemini API
-              console.log(`🧠 Llamando a Gemini API...`);
-              const geminiResponse = await callGeminiAPI(messageText);
-              
-              console.log(`💡 Respuesta de Gemini: ${geminiResponse}`);
-              
-              // Enviar respuesta automática
-              await socket.sendMessage(senderJid, { text: geminiResponse });
-              
-              console.log(`✅ AUTO-RESPUESTA ENVIADA a ${senderName}`);
-              
-            } catch (error) {
-              console.error(`❌ Error en auto-respuesta:`, error);
-              
-              // Enviar mensaje de error como fallback
-              try {
-                await socket.sendMessage(senderJid, { 
-                  text: '🤖 Hola! Soy Setter IA, pero tengo un problema técnico. Intenta de nuevo en unos minutos. 🔧' 
-                });
-                console.log(`📤 Mensaje de fallback enviado a ${senderName}`);
-              } catch (fallbackError) {
-                console.error(`❌ Error enviando fallback:`, fallbackError);
+            // Buscar si alguna palabra coincide con un trigger de agente
+            for (const word of words) {
+              const agent = await getActiveAgentByTrigger(word, sessionId, session.userId);
+              if (agent) {
+                activeAgent = agent;
+                detectedTrigger = word;
+                break;
               }
             }
-          } else {
-            console.log(`🔇 Mensaje ignorado - no contiene trigger "${autoResponseConfig.triggerWord}" o auto-respuesta deshabilitada`);
+            
+            // También verificar configuración global como fallback
+            const hasGlobalTrigger = autoResponseConfig.enabled && 
+              messageText.toLowerCase().includes(autoResponseConfig.triggerWord.toLowerCase());
+            
+            if (activeAgent || hasGlobalTrigger) {
+              const triggerUsed = activeAgent?.action_trigger || autoResponseConfig.triggerWord;
+              
+              console.log(`🚀 TRIGGER DETECTADO! Sesión: ${sessionId}, Trigger: "${triggerUsed}", Agente: ${activeAgent?.nombre || 'global'}`);
+              
+              // Actualizar actividad del session manager
+              const sessionManager = sessionManagers.get(sessionId);
+              if (sessionManager) {
+                sessionManager.updateActivity();
+              }
+              
+              try {
+                // Llamar a Gemini API con agente específico o configuración global
+                console.log(`🧠 Llamando a Gemini API con agente: ${activeAgent?.nombre || 'default'}...`);
+                const geminiResponse = await callGeminiAPIWithAgent(messageText, activeAgent);
+                
+                console.log(`💡 Respuesta de Gemini para ${sessionId}: ${geminiResponse}`);
+                
+                // Enviar respuesta automática
+                await socket.sendMessage(senderJid, { text: geminiResponse });
+                
+                console.log(`✅ AUTO-RESPUESTA ENVIADA desde ${sessionId} a ${senderName} usando agente: ${activeAgent?.nombre || 'default'}`);
+                
+              } catch (error) {
+                console.error(`❌ Error en auto-respuesta para ${sessionId}:`, error);
+                
+                // Enviar mensaje de error como fallback
+                try {
+                  await socket.sendMessage(senderJid, { 
+                    text: '🤖 Hola! Soy Setter IA, pero tengo un problema técnico. Intenta de nuevo en unos minutos. 🔧' 
+                  });
+                  console.log(`📤 Mensaje de fallback enviado desde ${sessionId} a ${senderName}`);
+                } catch (fallbackError) {
+                  console.error(`❌ Error enviando fallback desde ${sessionId}:`, fallbackError);
+                }
+              }
+            } else {
+              console.log(`🔇 Mensaje ignorado en ${sessionId} - no se encontraron triggers activos`);
+            }
           }
         } else {
           console.log(`🔇 Mensaje ignorado - fromMe: ${message.key.fromMe}, type: ${type}`);
@@ -732,10 +1094,52 @@ app.post('/api/v1/sessions/:sessionId/send-message', async (req, res) => {
     console.log(`📤 Enviando mensaje a ${to} via ${sessionId}`);
 
     let result;
+    const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`;
+
     if (type === 'text') {
-      result = await socket.sendMessage(`${to}@s.whatsapp.net`, { text: content.text });
+      result = await socket.sendMessage(jid, { text: content.text });
+    } else if (type === 'image') {
+      if (content.url) {
+        // Enviar imagen desde URL
+        result = await socket.sendMessage(jid, { 
+          image: { url: content.url },
+          caption: content.caption || ''
+        });
+      } else if (content.buffer) {
+        // Enviar imagen desde buffer
+        result = await socket.sendMessage(jid, { 
+          image: Buffer.from(content.buffer, 'base64'),
+          caption: content.caption || ''
+        });
+      } else {
+        throw new Error('Image message requires url or buffer');
+      }
+    } else if (type === 'audio') {
+      if (content.url) {
+        result = await socket.sendMessage(jid, { 
+          audio: { url: content.url },
+          mimetype: 'audio/mp4'
+        });
+      } else if (content.buffer) {
+        result = await socket.sendMessage(jid, { 
+          audio: Buffer.from(content.buffer, 'base64'),
+          mimetype: 'audio/mp4'
+        });
+      } else {
+        throw new Error('Audio message requires url or buffer');
+      }
+    } else if (type === 'document') {
+      if (content.url || content.buffer) {
+        result = await socket.sendMessage(jid, {
+          document: content.url ? { url: content.url } : Buffer.from(content.buffer, 'base64'),
+          fileName: content.fileName || 'document',
+          mimetype: content.mimetype || 'application/octet-stream'
+        });
+      } else {
+        throw new Error('Document message requires url or buffer');
+      }
     } else {
-      throw new Error(`Message type ${type} not implemented yet`);
+      throw new Error(`Message type ${type} not supported. Supported: text, image, audio, document`);
     }
 
     console.log(`✅ Mensaje enviado: ${result.key.id}`);
@@ -932,9 +1336,17 @@ app.get('/api/v1/auto-response/config', (req, res) => {
 app.post('/api/v1/auto-response/test', async (req, res) => {
   try {
     const testMessage = req.body.message || 'Hola, este es un mensaje de prueba';
+    const trigger = req.body.trigger || null;
+    
     console.log('🧪 Testing Gemini API with message:', testMessage);
     
-    const response = await callGeminiAPI(testMessage);
+    let agent = null;
+    if (trigger) {
+      agent = await getActiveAgentByTrigger(trigger);
+      console.log('🤖 Found agent:', agent?.nombre || 'none');
+    }
+    
+    const response = await callGeminiAPIWithAgent(testMessage, agent);
     
     res.json({
       success: true,
@@ -942,6 +1354,7 @@ app.post('/api/v1/auto-response/test', async (req, res) => {
         message: 'Gemini test successful',
         input: testMessage,
         output: response,
+        agent: agent ? { id: agent.id, nombre: agent.nombre, trigger: agent.action_trigger } : null,
         config: autoResponseConfig
       }
     });
@@ -955,6 +1368,229 @@ app.post('/api/v1/auto-response/test', async (req, res) => {
         message: error.message, 
         timestamp: new Date() 
       }
+    });
+  }
+});
+
+// ========== ENDPOINTS PARA GESTIÓN DE AGENTES ==========
+
+// Crear agente
+app.post('/api/v1/agents', async (req, res) => {
+  try {
+    const { nombre, descripcion, action_trigger, prompt, session_id, user_id, config } = req.body;
+    
+    if (!nombre || !action_trigger || !prompt) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'nombre, action_trigger y prompt son requeridos', timestamp: new Date() }
+      });
+    }
+
+    const { data, error } = await supabase
+      .from('agentes')
+      .insert([{
+        nombre,
+        descripcion,
+        action_trigger: action_trigger.toLowerCase(),
+        prompt,
+        session_id,
+        user_id,
+        config: config || {}
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    console.log(`✅ Agente creado: ${nombre} (trigger: ${action_trigger})`);
+    res.status(201).json({ success: true, data });
+    
+  } catch (error) {
+    console.error('Error creando agente:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'CREATE_AGENT_ERROR', message: error.message, timestamp: new Date() }
+    });
+  }
+});
+
+// Listar agentes
+app.get('/api/v1/agents', async (req, res) => {
+  try {
+    const { session_id, user_id, is_active = true } = req.query;
+    
+    let query = supabase.from('agentes').select('*');
+    
+    if (is_active !== 'all') {
+      query = query.eq('is_active', is_active === 'true');
+    }
+    
+    if (session_id) {
+      query = query.eq('session_id', session_id);
+    }
+    
+    if (user_id) {
+      query = query.eq('user_id', user_id);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false });
+    
+    if (error) throw error;
+
+    res.json({ success: true, data });
+    
+  } catch (error) {
+    console.error('Error listando agentes:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'LIST_AGENTS_ERROR', message: error.message, timestamp: new Date() }
+    });
+  }
+});
+
+// Obtener agente específico
+app.get('/api/v1/agents/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('agentes')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error) throw error;
+
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found', timestamp: new Date() }
+      });
+    }
+
+    res.json({ success: true, data });
+    
+  } catch (error) {
+    console.error('Error obteniendo agente:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'GET_AGENT_ERROR', message: error.message, timestamp: new Date() }
+    });
+  }
+});
+
+// Actualizar agente
+app.put('/api/v1/agents/:id', async (req, res) => {
+  try {
+    const { nombre, descripcion, action_trigger, prompt, is_active, config } = req.body;
+    
+    const updateData = {};
+    if (nombre !== undefined) updateData.nombre = nombre;
+    if (descripcion !== undefined) updateData.descripcion = descripcion;
+    if (action_trigger !== undefined) updateData.action_trigger = action_trigger.toLowerCase();
+    if (prompt !== undefined) updateData.prompt = prompt;
+    if (is_active !== undefined) updateData.is_active = is_active;
+    if (config !== undefined) updateData.config = config;
+
+    const { data, error } = await supabase
+      .from('agentes')
+      .update(updateData)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    console.log(`✅ Agente actualizado: ${data.nombre}`);
+    res.json({ success: true, data });
+    
+  } catch (error) {
+    console.error('Error actualizando agente:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'UPDATE_AGENT_ERROR', message: error.message, timestamp: new Date() }
+    });
+  }
+});
+
+// Eliminar agente
+app.delete('/api/v1/agents/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('agentes')
+      .delete()
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    console.log(`✅ Agente eliminado: ${data.nombre}`);
+    res.json({ success: true, data: { message: 'Agent deleted successfully', deletedAgent: data } });
+    
+  } catch (error) {
+    console.error('Error eliminando agente:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'DELETE_AGENT_ERROR', message: error.message, timestamp: new Date() }
+    });
+  }
+});
+
+// Buscar agente por trigger
+app.get('/api/v1/agents/by-trigger/:trigger', async (req, res) => {
+  try {
+    const { trigger } = req.params;
+    const { session_id, user_id } = req.query;
+    
+    const agent = await getActiveAgentByTrigger(trigger, session_id, user_id);
+    
+    if (!agent) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'AGENT_NOT_FOUND', message: `No active agent found for trigger: ${trigger}`, timestamp: new Date() }
+      });
+    }
+
+    res.json({ success: true, data: agent });
+    
+  } catch (error) {
+    console.error('Error buscando agente por trigger:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'SEARCH_AGENT_ERROR', message: error.message, timestamp: new Date() }
+    });
+  }
+});
+
+// Estadísticas de agentes
+app.get('/api/v1/agents-stats', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('agentes')
+      .select('id, nombre, action_trigger, total_activations, last_activation, is_active');
+
+    if (error) throw error;
+
+    const stats = {
+      totalAgents: data.length,
+      activeAgents: data.filter(a => a.is_active).length,
+      totalActivations: data.reduce((sum, a) => sum + (a.total_activations || 0), 0),
+      agents: data.map(agent => ({
+        id: agent.id,
+        nombre: agent.nombre,
+        trigger: agent.action_trigger,
+        activations: agent.total_activations || 0,
+        lastActivation: agent.last_activation,
+        isActive: agent.is_active
+      }))
+    };
+
+    res.json({ success: true, data: stats });
+    
+  } catch (error) {
+    console.error('Error obteniendo estadísticas:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'STATS_ERROR', message: error.message, timestamp: new Date() }
     });
   }
 });

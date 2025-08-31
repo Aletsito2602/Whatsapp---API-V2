@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setter IA - Gestión de Agentes</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 1200px;
+            margin: 2rem;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 2.5rem;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .login-form, .dashboard {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .dashboard {
+            max-width: 100%;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input[type="email"], input[type="password"], input, textarea, select {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-right: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-success {
+            background: #28a745;
+        }
+        
+        .user-info {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .agent-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 1.5rem;
+            border-left: 5px solid #667eea;
+            transition: transform 0.2s;
+        }
+        
+        .agent-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .agent-card h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .agent-card .description {
+            color: #666;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .agent-config {
+            background: #e9ecef;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+        
+        .agent-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .status-active {
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .status-inactive {
+            color: #dc3545;
+            font-weight: 600;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #000;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .trigger-list {
+            background: #e3f2fd;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+        }
+        
+        .trigger-item {
+            display: inline-block;
+            background: #1976d2;
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            margin: 0.2rem;
+        }
+        
+        .config-section {
+            background: #f1f8e9;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+        }
+        
+        .config-section h4 {
+            color: #2e7d32;
+            margin-bottom: 0.5rem;
+        }
+        
+        .instructions {
+            background: #fff3e0;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+        }
+        
+        .instructions h4 {
+            color: #ef6c00;
+            margin-bottom: 0.5rem;
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Screen -->
+        <div id="loginScreen">
+            <div class="header">
+                <h1>🤖 Setter IA</h1>
+                <p>Gestión de Agentes con Supabase</p>
+            </div>
+            
+            <div class="login-form">
+                <div id="loginError" class="error hidden"></div>
+                
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" required 
+                               placeholder="tu-email@ejemplo.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Contraseña:</label>
+                        <input type="password" id="password" required 
+                               placeholder="Tu contraseña">
+                    </div>
+                    
+                    <button type="submit" id="loginBtn">
+                        Iniciar Sesión 🚀
+                    </button>
+                </form>
+                
+                <div style="text-align: center; margin-top: 1rem;">
+                    <button type="button" id="signupBtn" class="btn-secondary">
+                        ¿No tienes cuenta? Registrarse
+                    </button>
+                    <button type="button" id="clearStorageBtn" class="btn-secondary">
+                        🗑️ Limpiar Sesión
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dashboard -->
+        <div id="dashboard" class="dashboard hidden">
+            <div class="header">
+                <h1>🤖 Agentes IA</h1>
+                <p>Gestiona tus agentes de WhatsApp</p>
+            </div>
+            
+            <div class="user-info">
+                <div>
+                    <strong>Usuario:</strong> <span id="userEmail"></span>
+                    <br>
+                    <small><strong>UUID:</strong> <code id="userUuid"></code></small>
+                </div>
+                <button id="logoutBtn" class="btn-secondary">Cerrar Sesión</button>
+            </div>
+            
+            <!-- Estado WhatsApp -->
+            <div id="whatsappStatus" class="user-info" style="background: #fff3cd; border-left: 5px solid #ffc107;">
+                <div>
+                    <strong>🔗 WhatsApp:</strong> <span id="connectionStatus">Verificando...</span>
+                    <br>
+                    <small id="sessionDetails">Cargando estado de conexión...</small>
+                </div>
+                <div>
+                    <button id="connectWhatsApp" class="btn-success">📱 Conectar WhatsApp</button>
+                    <button id="disconnectWhatsApp" class="btn-danger hidden">🔌 Desconectar</button>
+                    <button id="refreshConnection" class="btn-secondary">🔄 Actualizar</button>
+                </div>
+            </div>
+            
+            <div id="dashboardError" class="error hidden"></div>
+            <div id="dashboardSuccess" class="success hidden"></div>
+            
+            <div style="margin-bottom: 2rem;">
+                <button id="createAgentBtn" class="btn-success">
+                    ➕ Crear Nuevo Agente
+                </button>
+                <button id="refreshBtn">🔄 Actualizar</button>
+            </div>
+            
+            <div id="agentsLoading" class="loading">
+                Cargando agentes... 🔄
+            </div>
+            
+            <div id="agentsContainer" class="agents-grid hidden">
+                <!-- Agentes se cargarán aquí -->
+            </div>
+        </div>
+        
+        <!-- Modal para crear/editar agente -->
+        <div id="agentModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2 id="modalTitle">Crear Nuevo Agente</h2>
+                
+                <div id="modalError" class="error hidden"></div>
+                
+                <form id="agentForm">
+                    <div class="form-group">
+                        <label for="agentName">Nombre del Agente:</label>
+                        <input type="text" id="agentName" required 
+                               placeholder="ej. Asistente de Soporte">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="agentDescription">Descripción:</label>
+                        <textarea id="agentDescription" 
+                                placeholder="Describe qué hace este agente"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="agentPrompt">Prompt/Instrucciones:</label>
+                        <textarea id="agentPrompt" required 
+                                placeholder="Eres un asistente especializado en..."></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="agentTriggers">Palabras Activadoras (separadas por comas):</label>
+                        <input type="text" id="agentTriggers" required 
+                               placeholder="soporte, ayuda, asistencia">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="agentActive">Estado:</label>
+                        <select id="agentActive">
+                            <option value="true">Activo</option>
+                            <option value="false">Inactivo</option>
+                        </select>
+                    </div>
+                    
+                    <div style="text-align: right;">
+                        <button type="button" id="cancelBtn" class="btn-secondary">
+                            Cancelar
+                        </button>
+                        <button type="submit" id="saveAgentBtn">
+                            💾 Guardar Agente
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración de Supabase
+        const supabaseUrl = 'https://bqitfhvaejxcyvjszfom.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxaXRmaHZhZWp4Y3l2anN6Zm9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5MzkwMzMsImV4cCI6MjA2OTUxNTAzM30.BbvZctdOB8lJwiocMnt9XwzD8FHpyz5V3Y9ERvfQACA';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        
+        // Variables globales
+        let currentUser = null;
+        let agents = [];
+        let editingAgent = null;
+        let currentSession = null;
+        let whatsappConnected = false;
+        
+        // Configuración API
+        const API_KEY = 'test-api-key-12345';
+        const API_BASE_URL = 'http://localhost:3001';
+        
+        // Elementos DOM
+        const loginScreen = document.getElementById('loginScreen');
+        const dashboard = document.getElementById('dashboard');
+        const loginForm = document.getElementById('loginForm');
+        const loginError = document.getElementById('loginError');
+        const dashboardError = document.getElementById('dashboardError');
+        const dashboardSuccess = document.getElementById('dashboardSuccess');
+        const userEmail = document.getElementById('userEmail');
+        const userUuid = document.getElementById('userUuid');
+        const agentsContainer = document.getElementById('agentsContainer');
+        const agentsLoading = document.getElementById('agentsLoading');
+        const agentModal = document.getElementById('agentModal');
+        const agentForm = document.getElementById('agentForm');
+        const modalError = document.getElementById('modalError');
+        
+        // Elementos WhatsApp
+        const connectionStatus = document.getElementById('connectionStatus');
+        const sessionDetails = document.getElementById('sessionDetails');
+        const connectWhatsApp = document.getElementById('connectWhatsApp');
+        const disconnectWhatsApp = document.getElementById('disconnectWhatsApp');
+        const refreshConnection = document.getElementById('refreshConnection');
+        
+        // Inicializar aplicación
+        async function init() {
+            try {
+                // Verificar si hay una sesión activa
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    console.log('Error obteniendo sesión:', error);
+                    // Limpiar almacenamiento local si hay error
+                    localStorage.clear();
+                    showLogin();
+                    return;
+                }
+                
+                if (session) {
+                    currentUser = session.user;
+                    showDashboard();
+                } else {
+                    showLogin();
+                }
+            } catch (error) {
+                console.error('Error inicializando aplicación:', error);
+                // Limpiar almacenamiento si hay error crítico
+                localStorage.clear();
+                showLogin();
+            }
+        }
+        
+        // Mostrar pantalla de login
+        function showLogin() {
+            loginScreen.classList.remove('hidden');
+            dashboard.classList.add('hidden');
+        }
+        
+        // Mostrar dashboard
+        function showDashboard() {
+            loginScreen.classList.add('hidden');
+            dashboard.classList.remove('hidden');
+            
+            if (currentUser) {
+                userEmail.textContent = currentUser.email;
+                userUuid.textContent = currentUser.id;
+                loadAgents();
+                checkWhatsAppStatus();
+            }
+        }
+        
+        // Mostrar mensaje de error
+        function showError(element, message) {
+            element.textContent = message;
+            element.classList.remove('hidden');
+            setTimeout(() => element.classList.add('hidden'), 5000);
+        }
+        
+        // Mostrar mensaje de éxito
+        function showSuccess(message) {
+            dashboardSuccess.textContent = message;
+            dashboardSuccess.classList.remove('hidden');
+            setTimeout(() => dashboardSuccess.classList.add('hidden'), 3000);
+        }
+        
+        // Login
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (error) throw error;
+                
+                currentUser = data.user;
+                showDashboard();
+                
+            } catch (error) {
+                showError(loginError, error.message);
+            }
+        });
+        
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await supabase.auth.signOut();
+            currentUser = null;
+            showLogin();
+        });
+        
+        // Cargar agentes
+        async function loadAgents() {
+            agentsLoading.classList.remove('hidden');
+            agentsContainer.classList.add('hidden');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('agents')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) throw error;
+                
+                agents = data || [];
+                renderAgents();
+                
+            } catch (error) {
+                showError(dashboardError, 'Error cargando agentes: ' + error.message);
+            } finally {
+                agentsLoading.classList.add('hidden');
+                agentsContainer.classList.remove('hidden');
+            }
+        }
+        
+        // Renderizar agentes
+        function renderAgents() {
+            if (agents.length === 0) {
+                agentsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 3rem; color: #666; grid-column: 1 / -1;">
+                        <h3>🤖 No hay agentes configurados</h3>
+                        <p>Crea tu primer agente para comenzar</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            agentsContainer.innerHTML = agents.map(agent => `
+                <div class="agent-card">
+                    <h3>
+                        <span>${agent.name || 'Sin nombre'}</span>
+                        <span class="${agent.is_active ? 'status-active' : 'status-inactive'}">
+                            ${agent.is_active ? '🟢' : '🔴'}
+                        </span>
+                    </h3>
+                    
+                    <div class="description">
+                        ${agent.description || 'Sin descripción'}
+                    </div>
+                    
+                    ${renderAgentTriggers(agent)}
+                    ${renderAgentInstructions(agent)}
+                    ${renderAgentConfig(agent)}
+                    
+                    <div class="agent-stats">
+                        <small><strong>ID:</strong> ${agent.id}</small>
+                        <small><strong>Creado:</strong> ${new Date(agent.created_at).toLocaleDateString()}</small>
+                    </div>
+                    
+                    <div>
+                        <button onclick="editAgent('${agent.id}')" class="btn-secondary">
+                            ✏️ Editar
+                        </button>
+                        <button onclick="toggleAgent('${agent.id}', ${!agent.is_active})" 
+                                class="${agent.is_active ? 'btn-secondary' : 'btn-success'}">
+                            ${agent.is_active ? '⏸️ Desactivar' : '▶️ Activar'}
+                        </button>
+                        <button onclick="deleteAgent('${agent.id}')" class="btn-danger">
+                            🗑️ Eliminar
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Renderizar triggers
+        function renderAgentTriggers(agent) {
+            const triggers = extractTriggers(agent);
+            if (!triggers.length) return '';
+            
+            return `
+                <div class="trigger-list">
+                    <strong>Triggers:</strong>
+                    ${triggers.map(trigger => 
+                        `<span class="trigger-item">${trigger}</span>`
+                    ).join('')}
+                </div>
+            `;
+        }
+        
+        // Renderizar instrucciones
+        function renderAgentInstructions(agent) {
+            const instructions = extractInstructions(agent);
+            if (!instructions) return '';
+            
+            return `
+                <div class="instructions">
+                    <h4>📝 Instrucciones:</h4>
+                    <small>${instructions.substring(0, 200)}${instructions.length > 200 ? '...' : ''}</small>
+                </div>
+            `;
+        }
+        
+        // Renderizar configuración
+        function renderAgentConfig(agent) {
+            if (!agent.config || typeof agent.config !== 'object') return '';
+            
+            return `
+                <div class="config-section">
+                    <h4>⚙️ Configuración:</h4>
+                    <small><pre>${JSON.stringify(agent.config, null, 2)}</pre></small>
+                </div>
+            `;
+        }
+        
+        // Extraer triggers del agente
+        function extractTriggers(agent) {
+            const triggers = [];
+            
+            if (agent.config && agent.config.automation && agent.config.automation.actionTriggers) {
+                triggers.push(...agent.config.automation.actionTriggers);
+            }
+            
+            if (agent.config && agent.config.knowledge && agent.config.knowledge.qandas) {
+                agent.config.knowledge.qandas.forEach(qa => {
+                    if (qa.question) triggers.push(qa.question);
+                });
+            }
+            
+            return [...new Set(triggers)]; // Eliminar duplicados
+        }
+        
+        // Extraer instrucciones del agente
+        function extractInstructions(agent) {
+            if (agent.config && agent.config.persona && agent.config.persona.instructions) {
+                return agent.config.persona.instructions;
+            }
+            return '';
+        }
+        
+        // Abrir modal para crear agente
+        document.getElementById('createAgentBtn').addEventListener('click', () => {
+            editingAgent = null;
+            document.getElementById('modalTitle').textContent = 'Crear Nuevo Agente';
+            document.getElementById('agentForm').reset();
+            agentModal.style.display = 'block';
+        });
+        
+        // Editar agente
+        function editAgent(agentId) {
+            editingAgent = agents.find(a => a.id === agentId);
+            if (!editingAgent) return;
+            
+            document.getElementById('modalTitle').textContent = 'Editar Agente';
+            document.getElementById('agentName').value = editingAgent.name || '';
+            document.getElementById('agentDescription').value = editingAgent.description || '';
+            document.getElementById('agentPrompt').value = extractInstructions(editingAgent) || '';
+            document.getElementById('agentTriggers').value = extractTriggers(editingAgent).join(', ');
+            document.getElementById('agentActive').value = editingAgent.is_active ? 'true' : 'false';
+            
+            agentModal.style.display = 'block';
+        }
+        
+        // Cerrar modal
+        document.querySelector('.close').addEventListener('click', () => {
+            agentModal.style.display = 'none';
+        });
+        
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+            agentModal.style.display = 'none';
+        });
+        
+        // Guardar agente
+        agentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('agentName').value;
+            const description = document.getElementById('agentDescription').value;
+            const prompt = document.getElementById('agentPrompt').value;
+            const triggers = document.getElementById('agentTriggers').value
+                .split(',').map(t => t.trim()).filter(t => t);
+            const isActive = document.getElementById('agentActive').value === 'true';
+            
+            const agentData = {
+                name,
+                description,
+                is_active: isActive,
+                config: {
+                    persona: {
+                        instructions: prompt
+                    },
+                    automation: {
+                        actionTriggers: triggers
+                    },
+                    knowledge: {
+                        qandas: triggers.map(trigger => ({
+                            question: trigger,
+                            answer: `Respuesta automática activada por "${trigger}"`
+                        }))
+                    }
+                }
+            };
+            
+            try {
+                let result;
+                
+                if (editingAgent) {
+                    // Actualizar agente existente
+                    result = await supabase
+                        .from('agents')
+                        .update(agentData)
+                        .eq('id', editingAgent.id);
+                } else {
+                    // Crear nuevo agente
+                    result = await supabase
+                        .from('agents')
+                        .insert([agentData]);
+                }
+                
+                if (result.error) throw result.error;
+                
+                agentModal.style.display = 'none';
+                showSuccess(editingAgent ? 'Agente actualizado correctamente' : 'Agente creado correctamente');
+                loadAgents();
+                
+            } catch (error) {
+                showError(modalError, 'Error guardando agente: ' + error.message);
+            }
+        });
+        
+        // Activar/Desactivar agente
+        async function toggleAgent(agentId, newStatus) {
+            try {
+                const { error } = await supabase
+                    .from('agents')
+                    .update({ is_active: newStatus })
+                    .eq('id', agentId);
+                
+                if (error) throw error;
+                
+                showSuccess(`Agente ${newStatus ? 'activado' : 'desactivado'} correctamente`);
+                loadAgents();
+                
+            } catch (error) {
+                showError(dashboardError, 'Error actualizando agente: ' + error.message);
+            }
+        }
+        
+        // ========== FUNCIONES WHATSAPP ==========
+        
+        // Verificar estado de WhatsApp
+        async function checkWhatsAppStatus() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/v1/sessions`, {
+                    headers: { 'X-API-Key': API_KEY }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success && data.data.length > 0) {
+                    const session = data.data[0]; // Tomar la primera sesión
+                    currentSession = session;
+                    whatsappConnected = session.status === 'connected';
+                    
+                    updateConnectionUI();
+                } else {
+                    // No hay sesiones
+                    currentSession = null;
+                    whatsappConnected = false;
+                    updateConnectionUI();
+                }
+                
+            } catch (error) {
+                console.error('Error verificando estado WhatsApp:', error);
+                connectionStatus.textContent = 'Error de conexión al servidor';
+                sessionDetails.textContent = 'No se pudo conectar con el servidor WhatsApp';
+            }
+        }
+        
+        // Actualizar UI de conexión
+        function updateConnectionUI() {
+            if (whatsappConnected && currentSession) {
+                connectionStatus.textContent = '🟢 Conectado';
+                connectionStatus.style.color = '#28a745';
+                sessionDetails.textContent = `Sesión: ${currentSession.sessionName || currentSession.id}`;
+                
+                connectWhatsApp.classList.add('hidden');
+                disconnectWhatsApp.classList.remove('hidden');
+                
+                document.getElementById('whatsappStatus').style.background = '#d4edda';
+                document.getElementById('whatsappStatus').style.borderColor = '#28a745';
+                
+            } else if (currentSession && !whatsappConnected) {
+                connectionStatus.textContent = '🟡 Desconectado';
+                connectionStatus.style.color = '#ffc107';
+                sessionDetails.textContent = `Sesión creada: ${currentSession.sessionName || currentSession.id} - Necesita conectar`;
+                
+                connectWhatsApp.classList.remove('hidden');
+                disconnectWhatsApp.classList.add('hidden');
+                
+                document.getElementById('whatsappStatus').style.background = '#fff3cd';
+                document.getElementById('whatsappStatus').style.borderColor = '#ffc107';
+                
+            } else {
+                connectionStatus.textContent = '⚪ Sin sesión';
+                connectionStatus.style.color = '#6c757d';
+                sessionDetails.textContent = 'No hay sesiones WhatsApp creadas';
+                
+                connectWhatsApp.classList.remove('hidden');
+                disconnectWhatsApp.classList.add('hidden');
+                
+                document.getElementById('whatsappStatus').style.background = '#f8f9fa';
+                document.getElementById('whatsappStatus').style.borderColor = '#6c757d';
+            }
+        }
+        
+        // Crear y conectar sesión WhatsApp
+        async function createWhatsAppSession() {
+            try {
+                connectWhatsApp.disabled = true;
+                connectWhatsApp.textContent = '⏳ Creando sesión...';
+                
+                // 1. Crear sesión
+                const createResponse = await fetch(`${API_BASE_URL}/api/v1/sessions`, {
+                    method: 'POST',
+                    headers: {
+                        'X-API-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        sessionName: `session${currentUser.email.replace('@', '').replace('.', '').replace(/[^a-zA-Z0-9]/g, '')}`
+                    })
+                });
+                
+                if (!createResponse.ok) {
+                    throw new Error(`Error creando sesión: ${createResponse.status}`);
+                }
+                
+                const sessionData = await createResponse.json();
+                currentSession = sessionData.data;
+                
+                connectWhatsApp.textContent = '📱 Conectando...';
+                
+                // 2. Conectar sesión
+                const connectResponse = await fetch(`${API_BASE_URL}/api/v1/sessions/${currentSession.id}/connect`, {
+                    method: 'POST',
+                    headers: { 'X-API-Key': API_KEY }
+                });
+                
+                if (!connectResponse.ok) {
+                    throw new Error(`Error conectando sesión: ${connectResponse.status}`);
+                }
+                
+                showSuccess('🚀 Sesión WhatsApp creada. ¡Revisa la consola del servidor para ver el QR!');
+                
+                // Actualizar estado cada 3 segundos hasta que se conecte
+                const checkInterval = setInterval(async () => {
+                    await checkWhatsAppStatus();
+                    if (whatsappConnected) {
+                        clearInterval(checkInterval);
+                        showSuccess('✅ WhatsApp conectado exitosamente!');
+                    }
+                }, 3000);
+                
+                // Detener verificación después de 60 segundos
+                setTimeout(() => clearInterval(checkInterval), 60000);
+                
+            } catch (error) {
+                showError(dashboardError, 'Error conectando WhatsApp: ' + error.message);
+            } finally {
+                connectWhatsApp.disabled = false;
+                connectWhatsApp.textContent = '📱 Conectar WhatsApp';
+            }
+        }
+        
+        // Desconectar sesión
+        async function disconnectWhatsAppSession() {
+            if (!currentSession) return;
+            
+            try {
+                disconnectWhatsApp.disabled = true;
+                disconnectWhatsApp.textContent = '⏳ Desconectando...';
+                
+                const response = await fetch(`${API_BASE_URL}/api/v1/sessions/${currentSession.id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-API-Key': API_KEY }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status}`);
+                }
+                
+                currentSession = null;
+                whatsappConnected = false;
+                updateConnectionUI();
+                
+                showSuccess('WhatsApp desconectado correctamente');
+                
+            } catch (error) {
+                showError(dashboardError, 'Error desconectando WhatsApp: ' + error.message);
+            } finally {
+                disconnectWhatsApp.disabled = false;
+                disconnectWhatsApp.textContent = '🔌 Desconectar';
+            }
+        }
+        
+        // Eventos WhatsApp
+        connectWhatsApp.addEventListener('click', createWhatsAppSession);
+        disconnectWhatsApp.addEventListener('click', disconnectWhatsAppSession);
+        refreshConnection.addEventListener('click', checkWhatsAppStatus);
+        
+        // ========== FIN FUNCIONES WHATSAPP ==========
+        
+        // Eliminar agente
+        async function deleteAgent(agentId) {
+            if (!confirm('¿Estás seguro de que quieres eliminar este agente?')) return;
+            
+            try {
+                const { error } = await supabase
+                    .from('agents')
+                    .delete()
+                    .eq('id', agentId);
+                
+                if (error) throw error;
+                
+                showSuccess('Agente eliminado correctamente');
+                loadAgents();
+                
+            } catch (error) {
+                showError(dashboardError, 'Error eliminando agente: ' + error.message);
+            }
+        }
+        
+        // Actualizar lista
+        document.getElementById('refreshBtn').addEventListener('click', loadAgents);
+        
+        // Limpiar sesión/storage
+        document.getElementById('clearStorageBtn').addEventListener('click', () => {
+            localStorage.clear();
+            showSuccess('Sesión limpiada. Recarga la página si tienes problemas.');
+            setTimeout(() => location.reload(), 2000);
+        });
+        
+        // Registro (opcional)
+        document.getElementById('signupBtn').addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showError(loginError, 'Ingresa email y contraseña para registrarte');
+                return;
+            }
+            
+            try {
+                const { error } = await supabase.auth.signUp({
+                    email,
+                    password
+                });
+                
+                if (error) throw error;
+                
+                showError(loginError, 'Registro exitoso. Revisa tu email para confirmar la cuenta.');
+                
+            } catch (error) {
+                showError(loginError, error.message);
+            }
+        });
+        
+        // Cerrar modal al hacer click fuera
+        window.addEventListener('click', (event) => {
+            if (event.target === agentModal) {
+                agentModal.style.display = 'none';
+            }
+        });
+        
+        // Hacer funciones globales para los eventos onclick
+        window.editAgent = editAgent;
+        window.toggleAgent = toggleAgent;
+        window.deleteAgent = deleteAgent;
+        
+        // Inicializar aplicación
+        init();
+    </script>
+</body>
+</html>

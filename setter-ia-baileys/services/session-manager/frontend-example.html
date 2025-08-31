@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tu Plataforma - WhatsApp Integration</title>
+    <style>
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .qr-container { text-align: center; margin: 20px 0; }
+        .status { padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        .status.connecting { background: #fff3cd; color: #856404; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .messages { max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; }
+        .message { margin: 10px 0; padding: 8px; background: #f8f9fa; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Tu Plataforma - WhatsApp Bot</h1>
+        
+        <!-- Panel de Control WhatsApp -->
+        <div id="whatsapp-panel">
+            <h2>📱 Conexión WhatsApp</h2>
+            
+            <div id="status-display" class="status disconnected">
+                Estado: Desconectado
+            </div>
+            
+            <!-- Controles -->
+            <div>
+                <button id="connect-btn" class="btn-success" onclick="conectarWhatsApp()">
+                    Conectar WhatsApp
+                </button>
+                <button id="disconnect-btn" class="btn-danger" onclick="desconectarWhatsApp()" disabled>
+                    Desconectar
+                </button>
+                <button id="refresh-btn" class="btn-primary" onclick="actualizarEstado()">
+                    🔄 Actualizar
+                </button>
+            </div>
+
+            <!-- QR Code Display -->
+            <div id="qr-container" class="qr-container" style="display: none;">
+                <h3>📱 Escanea con WhatsApp:</h3>
+                <div id="qr-code"></div>
+                <p>Abre WhatsApp → Configuración → Dispositivos vinculados → Vincular dispositivo</p>
+            </div>
+        </div>
+
+        <!-- Panel de Agentes -->
+        <div id="agents-panel">
+            <h2>🤖 Agentes IA</h2>
+            <button class="btn-success" onclick="crearAgente()">➕ Crear Agente</button>
+            <div id="agents-list"></div>
+        </div>
+
+        <!-- Panel de Mensajes -->
+        <div id="messages-panel">
+            <h2>💬 Mensajes Recientes</h2>
+            <div id="messages-container" class="messages">
+                <p>Conecta WhatsApp para ver mensajes...</p>
+            </div>
+            
+            <!-- Enviar mensaje -->
+            <div style="margin-top: 20px;">
+                <input type="text" id="phone-input" placeholder="Número (ej: 5491234567890)" style="width: 200px;">
+                <input type="text" id="message-input" placeholder="Mensaje..." style="width: 300px;">
+                <button class="btn-primary" onclick="enviarMensaje()">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración - CAMBIAR POR TUS DATOS REALES
+        const WHATSAPP_API = {
+            baseURL: 'https://whatsapp.tu-dominio.com',
+            apiKey: 'sk-setter-prod-tu-api-key-aqui'
+        };
+
+        let currentSessionId = null;
+        let statusCheckInterval = null;
+
+        // Cliente API
+        class WhatsAppClient {
+            async request(endpoint, options = {}) {
+                const response = await fetch(`${WHATSAPP_API.baseURL}${endpoint}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': WHATSAPP_API.apiKey,
+                        ...options.headers
+                    },
+                    ...options
+                });
+                return response.json();
+            }
+
+            async createSession() {
+                return await this.request('/api/v1/sessions', {
+                    method: 'POST',
+                    body: JSON.stringify({ sessionName: 'plataforma_main' })
+                });
+            }
+
+            async connectSession(sessionId) {
+                return await this.request(`/api/v1/sessions/${sessionId}/connect`, {
+                    method: 'POST'
+                });
+            }
+
+            async getSessionStatus(sessionId) {
+                return await this.request(`/api/v1/sessions/${sessionId}/status`);
+            }
+
+            async getQR(sessionId) {
+                return await this.request(`/api/v1/sessions/${sessionId}/qr`);
+            }
+
+            async sendMessage(sessionId, to, text) {
+                return await this.request(`/api/v1/sessions/${sessionId}/send-message`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        to, type: 'text', content: { text }
+                    })
+                });
+            }
+
+            async getMessages(sessionId) {
+                return await this.request(`/api/v1/sessions/${sessionId}/messages?limit=20`);
+            }
+
+            async listAgents() {
+                return await this.request('/api/v1/agents');
+            }
+        }
+
+        const client = new WhatsAppClient();
+
+        // Conectar WhatsApp
+        async function conectarWhatsApp() {
+            try {
+                updateStatus('connecting', '🔄 Creando sesión...');
+                
+                // 1. Crear sesión
+                const session = await client.createSession();
+                currentSessionId = session.data.id;
+                
+                updateStatus('connecting', '📱 Generando QR...');
+                
+                // 2. Conectar para generar QR
+                await client.connectSession(currentSessionId);
+                
+                // 3. Mostrar QR
+                await mostrarQR();
+                
+                // 4. Iniciar verificación de estado
+                startStatusCheck();
+                
+                document.getElementById('connect-btn').disabled = true;
+                document.getElementById('disconnect-btn').disabled = false;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus('error', '❌ Error: ' + error.message);
+            }
+        }
+
+        // Mostrar QR
+        async function mostrarQR() {
+            try {
+                const qrData = await client.getQR(currentSessionId);
+                
+                if (qrData.success && qrData.data.qr) {
+                    // Generar QR como imagen usando API externa
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData.data.qr)}`;
+                    
+                    document.getElementById('qr-code').innerHTML = 
+                        `<img src="${qrUrl}" alt="QR Code" style="max-width: 300px;">`;
+                    document.getElementById('qr-container').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error obteniendo QR:', error);
+            }
+        }
+
+        // Actualizar estado
+        function updateStatus(status, message) {
+            const statusEl = document.getElementById('status-display');
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = message;
+        }
+
+        // Verificar estado periódicamente
+        function startStatusCheck() {
+            statusCheckInterval = setInterval(async () => {
+                if (!currentSessionId) return;
+                
+                try {
+                    const status = await client.getSessionStatus(currentSessionId);
+                    
+                    if (status.success) {
+                        const sessionData = status.data;
+                        
+                        if (sessionData.status === 'connected') {
+                            updateStatus('connected', '✅ WhatsApp Conectado');
+                            document.getElementById('qr-container').style.display = 'none';
+                            cargarMensajes();
+                            cargarAgentes();
+                            // Detener verificación una vez conectado
+                            clearInterval(statusCheckInterval);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error verificando estado:', error);
+                }
+            }, 3000);
+        }
+
+        // Desconectar WhatsApp
+        async function desconectarWhatsApp() {
+            if (!currentSessionId) return;
+            
+            try {
+                await client.request(`/api/v1/sessions/${currentSessionId}`, {
+                    method: 'DELETE'
+                });
+                
+                updateStatus('disconnected', 'Desconectado');
+                currentSessionId = null;
+                
+                document.getElementById('connect-btn').disabled = false;
+                document.getElementById('disconnect-btn').disabled = true;
+                document.getElementById('qr-container').style.display = 'none';
+                
+                if (statusCheckInterval) {
+                    clearInterval(statusCheckInterval);
+                }
+                
+            } catch (error) {
+                console.error('Error desconectando:', error);
+            }
+        }
+
+        // Cargar mensajes
+        async function cargarMensajes() {
+            if (!currentSessionId) return;
+            
+            try {
+                const messages = await client.getMessages(currentSessionId);
+                
+                if (messages.success) {
+                    const container = document.getElementById('messages-container');
+                    container.innerHTML = messages.data.messages
+                        .map(msg => `
+                            <div class="message">
+                                <strong>${msg.fromName}</strong> (${new Date(msg.timestamp).toLocaleString()})
+                                <br>${msg.text}
+                            </div>
+                        `).join('') || '<p>No hay mensajes recientes</p>';
+                }
+            } catch (error) {
+                console.error('Error cargando mensajes:', error);
+            }
+        }
+
+        // Cargar agentes
+        async function cargarAgentes() {
+            try {
+                const agents = await client.listAgents();
+                
+                if (agents.success) {
+                    const container = document.getElementById('agents-list');
+                    container.innerHTML = agents.data
+                        .map(agent => `
+                            <div style="border: 1px solid #ddd; margin: 10px 0; padding: 10px; border-radius: 5px;">
+                                <h4>${agent.name} ${agent.is_active ? '🟢' : '🔴'}</h4>
+                                <p>${agent.description || 'Sin descripción'}</p>
+                                <small>ID: ${agent.id}</small>
+                            </div>
+                        `).join('') || '<p>No hay agentes configurados</p>';
+                }
+            } catch (error) {
+                console.error('Error cargando agentes:', error);
+            }
+        }
+
+        // Enviar mensaje
+        async function enviarMensaje() {
+            if (!currentSessionId) {
+                alert('Primero conecta WhatsApp');
+                return;
+            }
+            
+            const phone = document.getElementById('phone-input').value;
+            const message = document.getElementById('message-input').value;
+            
+            if (!phone || !message) {
+                alert('Completa número y mensaje');
+                return;
+            }
+            
+            try {
+                await client.sendMessage(currentSessionId, phone, message);
+                alert('Mensaje enviado!');
+                document.getElementById('message-input').value = '';
+                cargarMensajes(); // Recargar mensajes
+            } catch (error) {
+                alert('Error enviando mensaje: ' + error.message);
+            }
+        }
+
+        // Crear agente (simplificado)
+        function crearAgente() {
+            const nombre = prompt('Nombre del agente:');
+            const trigger = prompt('Palabra trigger:');
+            const prompt_text = prompt('Prompt/Instrucciones:');
+            
+            if (!nombre || !trigger || !prompt_text) return;
+            
+            // Aquí llamarías a la API para crear el agente
+            alert('Funcionalidad de crear agente - implementar según necesidades');
+        }
+
+        // Actualizar estado manual
+        async function actualizarEstado() {
+            if (currentSessionId) {
+                const status = await client.getSessionStatus(currentSessionId);
+                console.log('Estado actual:', status);
+                
+                if (status.success && status.data.status === 'connected') {
+                    updateStatus('connected', '✅ WhatsApp Conectado');
+                    cargarMensajes();
+                    cargarAgentes();
+                }
+            }
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus('disconnected', 'Listo para conectar');
+        });
+    </script>
+</body>
+</html>

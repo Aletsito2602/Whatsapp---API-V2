@@ -1,0 +1,1 @@
+siempre que te pida algo relacioando a baileys, revisa la documentacion oficial y las mejores practicas de uso  a 2025.

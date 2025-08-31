@@ -1,7 +1,7 @@
-# Session Manager Service Dockerfile
+# Dockerfile para Producción - Optimizado para simple-baileys.ts
 FROM node:18-alpine
 
-# Install system dependencies for Baileys and native modules
+# Instalar dependencias del sistema para Baileys
 RUN apk add --no-cache \
     python3 \
     make \
@@ -15,45 +15,42 @@ RUN apk add --no-cache \
     pangomm-dev \
     libjpeg-turbo-dev \
     freetype-dev \
-    curl
+    curl \
+    git
 
-# Set working directory
+# Directorio de trabajo
 WORKDIR /app
 
-# Copy package files
-COPY services/session-manager/package*.json ./
-COPY shared/types/package*.json ./shared/types/
+# Copiar package.json y instalar dependencias
+COPY package*.json ./
+COPY tsconfig.json ./
+RUN npm ci --only=production
 
-# Install dependencies
-RUN npm ci --only=production --ignore-scripts
+# Copiar código fuente
+COPY simple-baileys.ts ./
+COPY supaagentes.html ./
+COPY server-web.js ./
+COPY *.js ./
 
-# Copy shared types
-COPY shared/types/ ./shared/types/
-RUN cd shared/types && npm run build
+# Crear usuario no-root para seguridad
+RUN addgroup -g 1001 -S nodejs && adduser -S setter -u 1001
 
-# Copy source code
-COPY services/session-manager/src ./src
-COPY services/session-manager/tsconfig.json ./
+# Crear directorios necesarios con permisos
+RUN mkdir -p sessions auth_info_baileys logs && chown -R setter:nodejs /app
 
-# Build the application
-RUN npm run build
+# Cambiar a usuario no-root
+USER setter
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
+# Exponer puertos
+EXPOSE 3001 8080
 
-# Create directories and set permissions
-RUN mkdir -p ./sessions ./logs && chown -R nodejs:nodejs /app
-
-# Switch to non-root user
-USER nodejs
-
-# Expose port
-EXPOSE 3001
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+# Health check mejorado
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=5 \
     CMD curl -f http://localhost:3001/health || exit 1
 
-# Start the service
-CMD ["npm", "start"]
+# Variables de entorno por defecto
+ENV NODE_ENV=production
+ENV PORT=3001
+
+# Comando de inicio con tsx para TypeScript
+CMD ["npx", "tsx", "simple-baileys.ts"]
