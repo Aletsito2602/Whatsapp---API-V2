@@ -1,0 +1,39 @@
+{
+  "name": "setter-ia-baileys",
+  "version": "1.0.0",
+  "description": "Multi-user WhatsApp API system using Baileys",
+  "private": true,
+  "workspaces": [
+    "services/*",
+    "shared/*",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm run install:services",
+    "install:services": "npm install --workspaces",
+    "build": "npm run build --workspaces",
+    "dev": "concurrently \"npm run dev --workspaces\"",
+    "test": "npm run test --workspaces",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "typecheck": "tsc --noEmit",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "k8s:deploy": "kubectl apply -f k8s/",
+    "clean": "npm run clean --workspaces"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "concurrently": "^8.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "author": "Your Name",
+  "license": "MIT"
+}

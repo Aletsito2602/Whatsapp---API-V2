@@ -1,0 +1,345 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: setter-baileys-postgres
+    environment:
+      POSTGRES_DB: setter_baileys
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./shared/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - setter-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d setter_baileys"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    container_name: setter-baileys-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - setter-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+
+  # Session Manager Service
+  session-manager:
+    build:
+      context: .
+      dockerfile: ./services/session-manager/Dockerfile
+    container_name: setter-baileys-session-manager
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/setter_baileys
+      REDIS_URL: redis://redis:6379
+      SESSION_MANAGER_PORT: 3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./services/session-manager/sessions:/app/sessions
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - setter-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Message Gateway Service
+  message-gateway:
+    build:
+      context: .
+      dockerfile: ./services/message-gateway/Dockerfile
+    container_name: setter-baileys-message-gateway
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/setter_baileys
+      REDIS_URL: redis://redis:6379
+      MESSAGE_GATEWAY_PORT: 3002
+      SESSION_MANAGER_URL: http://session-manager:3001
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      session-manager:
+        condition: service_healthy
+    networks:
+      - setter-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # User Management Service
+  user-management:
+    build:
+      context: .
+      dockerfile: ./services/user-management/Dockerfile
+    container_name: setter-baileys-user-management
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/setter_baileys
+      REDIS_URL: redis://redis:6379
+      USER_MANAGEMENT_PORT: 3003
+      JWT_SECRET: your-super-secret-jwt-key-here
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - setter-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Webhook Service
+  webhook-service:
+    build:
+      context: .
+      dockerfile: ./services/webhook-service/Dockerfile
+    container_name: setter-baileys-webhook-service
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/setter_baileys
+      REDIS_URL: redis://redis:6379
+      WEBHOOK_SERVICE_PORT: 3004
+    ports:
+      - "3004:3004"
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - setter-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Media Service
+  media-service:
+    build:
+      context: .
+      dockerfile: ./services/media-service/Dockerfile
+    container_name: setter-baileys-media-service
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/setter_baileys
+      REDIS_URL: redis://redis:6379
+      MEDIA_SERVICE_PORT: 3005
+      MEDIA_STORAGE_TYPE: local
+    ports:
+      - "3005:3005"
+    volumes:
+      - ./media:/app/media
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - setter-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Analytics Service
+  analytics-service:
+    build:
+      context: .
+      dockerfile: ./services/analytics-service/Dockerfile
+    container_name: setter-baileys-analytics-service
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/setter_baileys
+      REDIS_URL: redis://redis:6379
+      ANALYTICS_SERVICE_PORT: 3006
+    ports:
+      - "3006:3006"
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - setter-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: setter-baileys-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - session-manager
+      - message-gateway
+      - user-management
+      - webhook-service
+      - media-service
+      - analytics-service
+    networks:
+      - setter-network
+    restart: unless-stopped
+
+  # Redis GUI (Optional - for development)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: setter-baileys-redis-gui
+    environment:
+      REDIS_HOSTS: "local:redis:6379"
+      HTTP_USER: admin
+      HTTP_PASSWORD: secret
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - setter-network
+    profiles:
+      - tools
+    restart: unless-stopped
+
+  # PostgreSQL GUI (Optional - for development)
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: setter-baileys-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - setter-network
+    profiles:
+      - tools
+    restart: unless-stopped
+
+  # Prometheus (Optional - for monitoring)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: setter-baileys-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - setter-network
+    profiles:
+      - monitoring
+    restart: unless-stopped
+
+  # Grafana (Optional - for monitoring)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: setter-baileys-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+    depends_on:
+      - prometheus
+    networks:
+      - setter-network
+    profiles:
+      - monitoring
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  setter-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

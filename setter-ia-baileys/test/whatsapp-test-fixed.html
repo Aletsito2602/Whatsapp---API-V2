@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setter IA Baileys - Test Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #25D366;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+
+        .panel {
+            padding: 30px;
+        }
+
+        .panel:first-child {
+            border-right: 1px solid #eee;
+        }
+
+        .step {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #25D366;
+        }
+
+        .step h3 {
+            color: #25D366;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none;
+            border-color: #25D366;
+        }
+
+        .btn {
+            background: #25D366;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            background: #20b954;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .qr-container {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .qr-container img {
+            max-width: 250px;
+            max-height: 250px;
+            border-radius: 8px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 600;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #cce7ff;
+            color: #004085;
+            border: 1px solid #b3d7ff;
+        }
+
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .config-section {
+            background: #e9ecef;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .config-section h4 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .session-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            
+            .panel:first-child {
+                border-right: none;
+                border-bottom: 1px solid #eee;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Setter IA Baileys</h1>
+            <p>Interface de Prueba - Multi-User WhatsApp API</p>
+        </div>
+
+        <div class="content">
+            <!-- Panel de Configuración y Conexión -->
+            <div class="panel">
+                <h2>⚙️ Configuración & Conexión</h2>
+
+                <!-- Configuración de API -->
+                <div class="config-section">
+                    <h4>Configuración de API</h4>
+                    <div class="form-group">
+                        <label for="apiUrl">URL Base de la API:</label>
+                        <input type="text" id="apiUrl" value="http://localhost:3001">
+                    </div>
+                    <div class="form-group">
+                        <label for="apiKey">API Key:</label>
+                        <input type="text" id="apiKey" value="test-api-key-12345">
+                    </div>
+                    <button class="btn btn-secondary" onclick="testConnection()">🔍 Test Conexión</button>
+                </div>
+
+                <!-- Paso 1: Crear Sesión -->
+                <div class="step">
+                    <h3>📱 Paso 1: Crear Sesión</h3>
+                    <div class="form-group">
+                        <label for="sessionName">Nombre de la Sesión:</label>
+                        <input type="text" id="sessionName" value="" placeholder="Ej: session123">
+                        <small style="color: #666;">Solo letras y números (sin espacios, guiones, etc.)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="authMethod">Método de Autenticación:</label>
+                        <select id="authMethod" onchange="toggleAuthMethod()">
+                            <option value="qr">📱 Código QR (recomendado)</option>
+                            <option value="pairing">🔢 Código de Emparejamiento</option>
+                        </select>
+                    </div>
+                    <div id="phoneNumberGroup" style="display: none;">
+                        <div class="form-group">
+                            <label for="phoneNumber">Tu Número de WhatsApp:</label>
+                            <input type="text" id="phoneNumber" placeholder="+5491234567890">
+                            <small style="color: #666;">Formato: +[código país][número] (ej: +5491234567890)</small>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="createSession()">📱 Crear Sesión</button>
+                    <button class="btn btn-secondary" onclick="refreshSessions()">🔄 Actualizar Lista</button>
+                </div>
+
+                <!-- Lista de Sesiones -->
+                <div class="step">
+                    <h3>📋 Sesiones Existentes</h3>
+                    <div id="sessionsList"></div>
+                    <button class="btn btn-secondary" onclick="deleteSelectedSession()">🗑️ Eliminar Sesión</button>
+                    <button class="btn btn-secondary" onclick="cleanupAllSessions()" style="background: #dc3545; margin-top: 10px;">🧹 Limpiar Todo</button>
+                    <button class="btn btn-secondary" onclick="resetSystem()" style="background: #8b0000; margin-top: 10px;">💀 Reset Sistema</button>
+                </div>
+
+                <!-- Paso 2: Conectar -->
+                <div class="step">
+                    <h3>🔗 Paso 2: Conectar</h3>
+                    <div class="form-group">
+                        <label for="selectedSession">Sesión:</label>
+                        <select id="selectedSession">
+                            <option value="">Selecciona una sesión</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="connectSession()">🔗 Conectar Sesión</button>
+                    <button class="btn btn-secondary" onclick="getSessionInfo()">📊 Ver Estado</button>
+                </div>
+
+                <!-- QR Code / Pairing Code -->
+                <div id="authContainer" style="display: none;">
+                    <div class="step">
+                        <h3>📲 Paso 3: Autenticación</h3>
+                        
+                        <!-- AVISO IMPORTANTE SEGÚN DOCUMENTACIÓN OFICIAL -->
+                        <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 15px; margin: 15px 0;">
+                            <h4 style="color: #856404; margin-bottom: 10px;">🔍 IMPORTANTE: Revisa la Terminal del Servidor</h4>
+                            <p style="color: #856404; margin: 0; font-weight: 600;">
+                                📺 El QR code o código de emparejamiento aparece en la <strong>terminal donde corre el servidor</strong> (npx tsx simple-baileys.ts)
+                            </p>
+                        </div>
+                        
+                        <div id="qrContainer" class="qr-container" style="display: none;">
+                            <p><strong>🔍 Escanea este código QR con WhatsApp:</strong></p>
+                            <img id="qrImage" alt="QR Code" style="border: 2px solid #25D366;">
+                            <p style="margin-top: 15px; font-size: 14px; color: #666;">
+                                📱 <strong>En WhatsApp:</strong><br>
+                                ⚙️ Configuración → 🔗 Dispositivos vinculados → ➕ Vincular un dispositivo
+                            </p>
+                        </div>
+                        <div id="pairingContainer" style="display: none;">
+                            <p><strong>🔢 Código de emparejamiento:</strong></p>
+                            <h2 id="pairingCode" style="font-family: monospace; color: #25D366; margin: 10px 0; text-align: center; padding: 20px; background: #f0f0f0; border-radius: 8px;"></h2>
+                            <p style="font-size: 14px; color: #666; text-align: center;">
+                                📱 <strong>En WhatsApp:</strong><br>
+                                ⚙️ Configuración → 🔗 Dispositivos vinculados → ➕ Vincular un dispositivo → 📞 Vincular con número
+                            </p>
+                        </div>
+                        <button class="btn btn-secondary" onclick="checkConnectionStatus()">🔄 Verificar Estado</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Mensajería -->
+            <div class="panel">
+                <h2>💬 Enviar Mensajes</h2>
+
+                <!-- Estado de la Sesión -->
+                <div class="step">
+                    <h3>📊 Estado Actual</h3>
+                    <div id="sessionStatus" class="status info">
+                        Crea y conecta una sesión primero
+                    </div>
+                    <div id="sessionInfo" class="session-info" style="display: none;"></div>
+                </div>
+
+                <!-- Paso 4: Enviar Mensaje -->
+                <div class="step">
+                    <h3>📤 Enviar Mensaje de Prueba</h3>
+                    <div class="form-group">
+                        <label for="recipientNumber">Número de Destino:</label>
+                        <input type="text" id="recipientNumber" placeholder="1234567890" maxlength="15">
+                        <small style="color: #666;">Solo números, sin + ni espacios (ej: 5491234567890)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="messageType">Tipo de Mensaje:</label>
+                        <select id="messageType" onchange="toggleMessageContent()">
+                            <option value="text">📝 Texto</option>
+                            <option value="image">🖼️ Imagen</option>
+                            <option value="document">📄 Documento</option>
+                        </select>
+                    </div>
+                    <div id="textContent">
+                        <div class="form-group">
+                            <label for="messageText">Mensaje:</label>
+                            <textarea id="messageText" rows="4" placeholder="¡Hola! Este es un mensaje de prueba desde Setter IA Baileys 🚀&#10;&#10;Funciona perfectamente! ✅"></textarea>
+                        </div>
+                    </div>
+                    <div id="mediaContent" style="display: none;">
+                        <div class="form-group">
+                            <label for="mediaUrl">URL del archivo:</label>
+                            <input type="url" id="mediaUrl" placeholder="https://example.com/image.jpg">
+                        </div>
+                        <div class="form-group">
+                            <label for="mediaCaption">Descripción (opcional):</label>
+                            <input type="text" id="mediaCaption" placeholder="Descripción del archivo">
+                        </div>
+                    </div>
+                    <button class="btn" onclick="sendMessage()">📤 Enviar Mensaje</button>
+                </div>
+
+                <!-- Configuración Auto-Respuesta con Gemini -->
+                <div class="step">
+                    <h3>🤖 Auto-Respuesta con Gemini AI</h3>
+                    <div class="form-group">
+                        <label for="triggerWord">Palabra Disparadora:</label>
+                        <input type="text" id="triggerWord" value="setter" placeholder="setter">
+                        <small style="color: #666;">Cuando alguien envíe un mensaje con esta palabra, se activará la auto-respuesta</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="geminiPrompt">Prompt para Gemini:</label>
+                        <textarea id="geminiPrompt" rows="4" placeholder="Eres un asistente de IA llamado Setter. Responde de manera útil y amigable en español...">Eres un asistente de IA llamado Setter. Responde de manera útil y amigable en español. Mantén tus respuestas concisas pero informativas. Siempre termina con un emoji relacionado al tema.</textarea>
+                    </div>
+                    <div class="form-group">
+                        <input type="checkbox" id="autoResponseEnabled" checked>
+                        <label for="autoResponseEnabled">🤖 Activar Auto-Respuesta</label>
+                    </div>
+                    <button class="btn btn-secondary" onclick="testGemini()">🧪 Test Gemini</button>
+                </div>
+
+                <!-- Log de Actividades -->
+                <div class="step">
+                    <h3>📋 Log de Actividades</h3>
+                    <div id="activityLog" class="log">
+                        <span style="color: #25D366;">[INICIADO]</span> Sistema listo para crear sesiones...<br>
+                        <span style="color: #666;">💡 Tip: Usa nombres como "session123" (solo letras y números)</span><br>
+                    </div>
+                    <button class="btn btn-secondary" onclick="clearLog()">🗑️ Limpiar Log</button>
+                    <button class="btn btn-secondary" onclick="debugAPI()">🔧 Debug API</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let currentSessionId = null;
+        let checkInterval = null;
+
+        // Generar nombre aleatorio para evitar conflictos
+        function generateSessionName() {
+            const timestamp = Date.now().toString().slice(-6);
+            return `session${timestamp}`;
+        }
+
+        // Funciones de utilidad
+        function log(message, color = '#333') {
+            const logElement = document.getElementById('activityLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `<span style="color: #666;">[${timestamp}]</span> <span style="color: ${color};">${message}</span><br>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusElement = document.getElementById('sessionStatus');
+            statusElement.className = `status ${type}`;
+            statusElement.textContent = message;
+        }
+
+        function getApiUrl() {
+            return document.getElementById('apiUrl').value.trim();
+        }
+
+        function getApiKey() {
+            return document.getElementById('apiKey').value.trim();
+        }
+
+        function toggleMessageContent() {
+            const messageType = document.getElementById('messageType').value;
+            const textContent = document.getElementById('textContent');
+            const mediaContent = document.getElementById('mediaContent');
+
+            if (messageType === 'text') {
+                textContent.style.display = 'block';
+                mediaContent.style.display = 'none';
+            } else {
+                textContent.style.display = 'none';
+                mediaContent.style.display = 'block';
+            }
+        }
+
+        function toggleAuthMethod() {
+            const authMethod = document.getElementById('authMethod').value;
+            const phoneNumberGroup = document.getElementById('phoneNumberGroup');
+
+            if (authMethod === 'pairing') {
+                phoneNumberGroup.style.display = 'block';
+                log('🔢 Método de emparejamiento seleccionado. Ingresa tu número de WhatsApp', '#FF9800');
+            } else {
+                phoneNumberGroup.style.display = 'none';
+                log('📱 Método QR seleccionado', '#2196F3');
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('activityLog').innerHTML = '<span style="color: #25D366;">[LIMPIADO]</span> Log reiniciado...<br>';
+        }
+
+        // Test de conexión
+        async function testConnection() {
+            log('🔍 Probando conexión con el servidor...', '#2196F3');
+            
+            try {
+                const response = await fetch(`${getApiUrl()}/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Servidor respondiendo correctamente', '#4CAF50');
+                    showStatus('✅ Conexión exitosa con el servidor', 'success');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                log(`❌ Error de conexión: ${error.message}`, '#f44336');
+                showStatus(`❌ Error: Servidor no disponible en ${getApiUrl()}`, 'error');
+            }
+        }
+
+        // Función para hacer peticiones HTTP
+        async function makeRequest(url, method = 'GET', body = null) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-API-Key': getApiKey()
+            };
+
+            const config = { method, headers };
+            if (body) {
+                config.body = JSON.stringify(body);
+            }
+
+            log(`🌐 ${method} ${url}`, '#2196F3');
+
+            try {
+                const response = await fetch(url, config);
+                const data = await response.json();
+                
+                log(`📡 Respuesta: ${response.status} ${response.statusText}`, response.ok ? '#4CAF50' : '#f44336');
+                
+                if (!response.ok) {
+                    throw new Error(data.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                return data;
+            } catch (error) {
+                log(`❌ Error en petición: ${error.message}`, '#f44336');
+                throw error;
+            }
+        }
+
+        // Paso 1: Crear sesión
+        async function createSession() {
+            let sessionName = document.getElementById('sessionName').value.trim();
+            const authMethod = document.getElementById('authMethod').value;
+            const phoneNumber = document.getElementById('phoneNumber').value.trim();
+
+            // Si no hay nombre, generar uno automático
+            if (!sessionName) {
+                sessionName = generateSessionName();
+                document.getElementById('sessionName').value = sessionName;
+                log(`📝 Nombre generado automáticamente: ${sessionName}`, '#FF9800');
+            }
+
+            // Validar nombre (solo alfanumérico)
+            if (!/^[a-zA-Z0-9]+$/.test(sessionName)) {
+                showStatus('❌ El nombre solo puede tener letras y números', 'error');
+                log('❌ Nombre inválido: usa solo letras y números', '#f44336');
+                return;
+            }
+
+            // Validar número si se seleccionó código de emparejamiento
+            if (authMethod === 'pairing') {
+                if (!phoneNumber) {
+                    showStatus('❌ Ingresa tu número de WhatsApp para código de emparejamiento', 'error');
+                    log('❌ Número requerido para código de emparejamiento', '#f44336');
+                    return;
+                }
+                
+                if (!/^\+\d{10,15}$/.test(phoneNumber)) {
+                    showStatus('❌ Formato de número inválido. Usa +[código país][número]', 'error');
+                    log('❌ Formato de número incorrecto. Ejemplo: +5491234567890', '#f44336');
+                    return;
+                }
+            }
+
+            log(`📱 Creando sesión: ${sessionName} (${authMethod === 'pairing' ? 'código' : 'QR'})...`, '#2196F3');
+            
+            try {
+                const body = { sessionName };
+                if (authMethod === 'pairing' && phoneNumber) {
+                    body.phoneNumber = phoneNumber;
+                    log(`📞 Usando número: ${phoneNumber}`, '#2196F3');
+                }
+
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/sessions`,
+                    'POST',
+                    body
+                );
+
+                log(`✅ Sesión creada exitosamente!`, '#4CAF50');
+                log(`   ID: ${response.data.id}`, '#666');
+                showStatus(`✅ Sesión "${sessionName}" creada exitosamente`, 'success');
+                
+                currentSessionId = response.data.id;
+                
+                // Mostrar información de la sesión
+                const sessionInfo = document.getElementById('sessionInfo');
+                sessionInfo.style.display = 'block';
+                sessionInfo.innerHTML = `
+                    <strong>📋 Información de la Sesión:</strong><br>
+                    🆔 ID: ${response.data.id}<br>
+                    📱 Nombre: ${response.data.sessionName}<br>
+                    📞 Teléfono: ${response.data.phoneNumber || 'N/A'}<br>
+                    📊 Estado: ${response.data.status}<br>
+                    🕐 Creada: ${new Date(response.data.createdAt).toLocaleString()}
+                `;
+                
+                await refreshSessions();
+                
+                // Seleccionar automáticamente la sesión creada
+                document.getElementById('selectedSession').value = response.data.id;
+
+            } catch (error) {
+                log(`❌ Error al crear sesión: ${error.message}`, '#f44336');
+                showStatus(`❌ Error: ${error.message}`, 'error');
+                
+                // Si ya existe, sugerir nombre nuevo
+                if (error.message.includes('already exists')) {
+                    const newName = generateSessionName();
+                    document.getElementById('sessionName').value = newName;
+                    log(`💡 Sugerencia: Prueba con el nombre "${newName}"`, '#FF9800');
+                }
+            }
+        }
+
+        // Refrescar lista de sesiones
+        async function refreshSessions() {
+            log('🔄 Actualizando lista de sesiones...', '#2196F3');
+            
+            try {
+                const response = await makeRequest(`${getApiUrl()}/api/v1/sessions`);
+                const sessions = response.data;
+                
+                const select = document.getElementById('selectedSession');
+                const sessionsList = document.getElementById('sessionsList');
+                
+                select.innerHTML = '<option value="">Selecciona una sesión</option>';
+                sessionsList.innerHTML = '';
+                
+                if (sessions.length === 0) {
+                    sessionsList.innerHTML = '<p style="color: #666; font-style: italic;">No hay sesiones creadas</p>';
+                } else {
+                    sessions.forEach(session => {
+                        // Agregar a select
+                        const option = document.createElement('option');
+                        option.value = session.id;
+                        option.textContent = `${session.sessionName} (${session.status})`;
+                        select.appendChild(option);
+                        
+                        // Agregar a lista visual
+                        const sessionDiv = document.createElement('div');
+                        sessionDiv.style.cssText = 'background: #f0f0f0; padding: 10px; margin: 5px 0; border-radius: 5px; font-size: 12px;';
+                        sessionDiv.innerHTML = `
+                            <strong>${session.sessionName}</strong><br>
+                            Estado: <span style="color: ${getStatusColor(session.status)}">${session.status}</span><br>
+                            ID: <span style="font-family: monospace;">${session.id}</span>
+                        `;
+                        sessionsList.appendChild(sessionDiv);
+                    });
+                }
+
+                log(`✅ ${sessions.length} sesiones encontradas`, '#4CAF50');
+                
+            } catch (error) {
+                log(`❌ Error al obtener sesiones: ${error.message}`, '#f44336');
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function getStatusColor(status) {
+            switch(status) {
+                case 'connected': return '#4CAF50';
+                case 'connecting': return '#FF9800';
+                case 'error': return '#f44336';
+                default: return '#666';
+            }
+        }
+
+        // Paso 2: Conectar sesión
+        async function connectSession() {
+            const sessionId = document.getElementById('selectedSession').value;
+            
+            if (!sessionId) {
+                showStatus('❌ Por favor selecciona una sesión', 'error');
+                log('❌ No hay sesión seleccionada', '#f44336');
+                return;
+            }
+
+            currentSessionId = sessionId;
+            log(`🔗 Conectando sesión: ${sessionId.slice(0, 8)}...`, '#2196F3');
+            
+            try {
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/sessions/${sessionId}/connect`,
+                    'POST'
+                );
+
+                log(`✅ Comando de conexión enviado exitosamente`, '#4CAF50');
+                showStatus('🔄 Sesión conectándose... Esperando autenticación', 'warning');
+                
+                // Mostrar contenedor de autenticación
+                document.getElementById('authContainer').style.display = 'block';
+                
+                // SIGUIENDO DOCUMENTACIÓN OFICIAL: los códigos se generan en connection.update
+                // No esperamos códigos inmediatos en la respuesta de /connect
+                log('⏳ Conexión iniciada. Esperando autenticación...', '#FF9800');
+                log('📺 REVISA LA TERMINAL DEL SERVIDOR para ver QR/código', '#2196F3');
+                
+                // Verificar si devolvió directamente código (fallback)
+                if (response.data.code) {
+                    showPairingCode(response.data.code);
+                    log(`🔢 Código de emparejamiento: ${response.data.code}`, '#4CAF50');
+                }
+                
+                // Esperar y verificar periódicamente
+                setTimeout(() => {
+                    checkForAuthData();
+                }, 5000); // Más tiempo según documentación
+
+                // Iniciar verificación periódica del estado
+                startStatusCheck();
+
+            } catch (error) {
+                log(`❌ Error al conectar sesión: ${error.message}`, '#f44336');
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Verificar datos de autenticación (QR o código de emparejamiento)
+        async function checkForAuthData() {
+            if (!currentSessionId) return;
+            
+            try {
+                // Primero intentar obtener QR
+                try {
+                    const qrResponse = await makeRequest(
+                        `${getApiUrl()}/api/v1/sessions/${currentSessionId}/qr`
+                    );
+
+                    if (qrResponse.data.qrCode) {
+                        showQRCode(qrResponse.data.qrCode);
+                        log('📱 Código QR obtenido exitosamente', '#4CAF50');
+                        return;
+                    }
+                } catch (qrError) {
+                    // QR no disponible, intentar código de emparejamiento
+                }
+
+                // Intentar obtener código de emparejamiento
+                try {
+                    const pairingResponse = await makeRequest(
+                        `${getApiUrl()}/api/v1/sessions/${currentSessionId}/pairing-code`
+                    );
+
+                    if (pairingResponse.data.code) {
+                        showPairingCode(pairingResponse.data.code);
+                        log(`🔢 Código de emparejamiento obtenido: ${pairingResponse.data.code}`, '#4CAF50');
+                        return;
+                    }
+                } catch (pairingError) {
+                    // Código de emparejamiento no disponible
+                }
+
+                log(`⚠️ Código de autenticación no disponible aún. Reintentando...`, '#FF9800');
+                setTimeout(checkForAuthData, 3000);
+                
+            } catch (error) {
+                log(`❌ Error obteniendo datos de autenticación: ${error.message}`, '#f44336');
+                setTimeout(checkForAuthData, 5000);
+            }
+        }
+
+        // Obtener QR code manualmente
+        async function getQRCode() {
+            await checkForAuthData();
+        }
+
+        // Mostrar código QR
+        function showQRCode(qrCode) {
+            document.getElementById('qrContainer').style.display = 'block';
+            document.getElementById('pairingContainer').style.display = 'none';
+            document.getElementById('qrImage').src = qrCode;
+            log('📱 ¡Código QR listo! Escanéalo con WhatsApp', '#4CAF50');
+        }
+
+        // Mostrar código de emparejamiento
+        function showPairingCode(code) {
+            document.getElementById('pairingContainer').style.display = 'block';
+            document.getElementById('qrContainer').style.display = 'none';
+            document.getElementById('pairingCode').textContent = code;
+            log(`🔢 Código de emparejamiento: ${code}`, '#4CAF50');
+        }
+
+        // Verificar estado de conexión
+        async function checkConnectionStatus() {
+            if (!currentSessionId) {
+                showStatus('❌ No hay sesión seleccionada', 'error');
+                return;
+            }
+
+            try {
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/sessions/${currentSessionId}/status`
+                );
+
+                const status = response.data.status;
+                const phoneNumber = response.data.phoneNumber;
+                
+                log(`📊 Estado actual: ${status}`, '#2196F3');
+
+                if (status === 'connected') {
+                    showStatus(`✅ ¡Sesión conectada exitosamente! 🎉`, 'success');
+                    document.getElementById('authContainer').style.display = 'none';
+                    stopStatusCheck();
+                    log(`🎉 ¡WhatsApp conectado! Teléfono: ${phoneNumber}`, '#4CAF50');
+                    log(`📤 ¡Ya puedes enviar mensajes!`, '#4CAF50');
+                    
+                    // Actualizar info de sesión
+                    const sessionInfo = document.getElementById('sessionInfo');
+                    sessionInfo.innerHTML = `
+                        <strong>📱 Sesión Activa:</strong><br>
+                        📞 Teléfono: ${phoneNumber || 'N/A'}<br>
+                        📊 Estado: <span style="color: #4CAF50;">CONECTADO</span><br>
+                        🕐 Última actividad: ${new Date().toLocaleString()}
+                    `;
+                    
+                } else if (status === 'connecting' || status === 'pairing') {
+                    showStatus(`⏳ Conectando... Estado: ${status}`, 'warning');
+                    log(`⏳ Estado: ${status}`, '#FF9800');
+                } else if (status === 'error') {
+                    showStatus(`❌ Error en la conexión`, 'error');
+                    stopStatusCheck();
+                    log(`❌ Error en la sesión`, '#f44336');
+                } else {
+                    showStatus(`📊 Estado: ${status}`, 'info');
+                    log(`📊 Estado: ${status}`, '#666');
+                }
+
+            } catch (error) {
+                log(`❌ Error al verificar estado: ${error.message}`, '#f44336');
+            }
+        }
+
+        // Iniciar verificación periódica
+        function startStatusCheck() {
+            stopStatusCheck();
+            log('🔄 Iniciando verificación automática del estado...', '#2196F3');
+            checkInterval = setInterval(checkConnectionStatus, 5000);
+        }
+
+        // Detener verificación periódica
+        function stopStatusCheck() {
+            if (checkInterval) {
+                clearInterval(checkInterval);
+                checkInterval = null;
+                log('⏹️ Verificación automática detenida', '#666');
+            }
+        }
+
+        // Obtener información de la sesión
+        async function getSessionInfo() {
+            if (!currentSessionId) {
+                currentSessionId = document.getElementById('selectedSession').value;
+            }
+            
+            if (!currentSessionId) {
+                showStatus('❌ No hay sesión seleccionada', 'error');
+                return;
+            }
+
+            await checkConnectionStatus();
+        }
+
+        // Eliminar sesión seleccionada
+        async function deleteSelectedSession() {
+            const sessionId = document.getElementById('selectedSession').value;
+            
+            if (!sessionId) {
+                showStatus('❌ No hay sesión seleccionada', 'error');
+                return;
+            }
+
+            if (!confirm('¿Estás seguro de que quieres eliminar esta sesión?')) {
+                return;
+            }
+
+            log(`🗑️ Eliminando sesión: ${sessionId.slice(0, 8)}...`, '#f44336');
+            
+            try {
+                await makeRequest(
+                    `${getApiUrl()}/api/v1/sessions/${sessionId}`,
+                    'DELETE'
+                );
+
+                log(`✅ Sesión eliminada exitosamente`, '#4CAF50');
+                showStatus('✅ Sesión eliminada', 'success');
+                
+                currentSessionId = null;
+                document.getElementById('selectedSession').value = '';
+                document.getElementById('authContainer').style.display = 'none';
+                document.getElementById('sessionInfo').style.display = 'none';
+                stopStatusCheck();
+                
+                await refreshSessions();
+
+            } catch (error) {
+                log(`❌ Error al eliminar sesión: ${error.message}`, '#f44336');
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Limpiar todas las sesiones
+        async function cleanupAllSessions() {
+            if (!confirm('🧹 ¿Estás seguro de que quieres limpiar TODAS las sesiones?\n\nEsto cerrará todos los sockets y eliminará toda la información de autenticación.\n\n⚠️ Esta acción no se puede deshacer.')) {
+                return;
+            }
+
+            log('🧹 Iniciando limpieza completa de sesiones...', '#dc3545');
+            showStatus('🧹 Limpiando todas las sesiones...', 'warning');
+            
+            try {
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/sessions/cleanup`,
+                    'POST'
+                );
+
+                log('✅ Limpieza completa exitosa', '#4CAF50');
+                log(`   📊 Sesiones limpiadas: ${response.data.clearedSessions || 0}`, '#666');
+                log(`   🔌 Sockets cerrados: ${response.data.clearedSockets || 0}`, '#666');
+                showStatus('✅ Todas las sesiones han sido limpiadas', 'success');
+                
+                // Resetear estado de la interfaz
+                currentSessionId = null;
+                document.getElementById('selectedSession').value = '';
+                document.getElementById('authContainer').style.display = 'none';
+                document.getElementById('sessionInfo').style.display = 'none';
+                document.getElementById('qrContainer').style.display = 'none';
+                document.getElementById('pairingContainer').style.display = 'none';
+                stopStatusCheck();
+                
+                // Refresh la lista de sesiones
+                await refreshSessions();
+                
+                log('💡 Ahora puedes crear nuevas sesiones sin problemas', '#25D366');
+
+            } catch (error) {
+                log(`❌ Error en limpieza: ${error.message}`, '#f44336');
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Reset completo del sistema
+        async function resetSystem() {
+            if (!confirm('💀 ¿RESET COMPLETO DEL SISTEMA?\n\n🚨 ADVERTENCIA: Esto forzará el cierre de TODOS los sockets y eliminará TODA la información del sistema.\n\n⚠️ Usa esto solo si tienes problemas persistentes de conexión.\n\n¿Continuar?')) {
+                return;
+            }
+
+            log('💀 🔄 INICIANDO RESET COMPLETO DEL SISTEMA...', '#8b0000');
+            showStatus('💀 Reseteando sistema completo...', 'error');
+            
+            try {
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/system/reset`,
+                    'POST'
+                );
+
+                log('💥 ✅ RESET COMPLETO EXITOSO', '#4CAF50');
+                log(`   📊 Sesiones eliminadas: ${response.data.clearedSessions || 0}`, '#666');
+                log(`   🔌 Sockets cerrados: ${response.data.clearedSockets || 0}`, '#666');
+                showStatus('💥 Sistema completamente reseteado', 'success');
+                
+                // Resetear estado de la interfaz completamente
+                currentSessionId = null;
+                document.getElementById('selectedSession').value = '';
+                document.getElementById('authContainer').style.display = 'none';
+                document.getElementById('sessionInfo').style.display = 'none';
+                document.getElementById('qrContainer').style.display = 'none';
+                document.getElementById('pairingContainer').style.display = 'none';
+                stopStatusCheck();
+                
+                // Generar nuevo nombre de sesión
+                document.getElementById('sessionName').value = generateSessionName();
+                
+                // Refresh la lista de sesiones
+                setTimeout(async () => {
+                    await refreshSessions();
+                    log('💡 Sistema listo para nuevas conexiones', '#25D366');
+                    log('🔥 Prueba crear una nueva sesión ahora', '#FF9800');
+                }, 1000);
+
+            } catch (error) {
+                log(`❌ Error en reset: ${error.message}`, '#f44336');
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Enviar mensaje
+        async function sendMessage() {
+            if (!currentSessionId) {
+                currentSessionId = document.getElementById('selectedSession').value;
+            }
+            
+            if (!currentSessionId) {
+                showStatus('❌ No hay sesión activa', 'error');
+                log('❌ Selecciona una sesión primero', '#f44336');
+                return;
+            }
+
+            const recipientNumber = document.getElementById('recipientNumber').value.trim();
+            const messageType = document.getElementById('messageType').value;
+
+            if (!recipientNumber) {
+                showStatus('❌ Por favor ingresa un número de destino', 'error');
+                return;
+            }
+
+            // Validar número (solo dígitos, 10-15 caracteres)
+            if (!/^\d{10,15}$/.test(recipientNumber)) {
+                showStatus('❌ Número inválido. Usa solo dígitos (10-15 caracteres)', 'error');
+                log('❌ Formato de número incorrecto', '#f44336');
+                return;
+            }
+
+            let content = {};
+            
+            if (messageType === 'text') {
+                const messageText = document.getElementById('messageText').value.trim();
+                if (!messageText) {
+                    showStatus('❌ Por favor ingresa un mensaje', 'error');
+                    return;
+                }
+                content.text = messageText;
+            } else {
+                const mediaUrl = document.getElementById('mediaUrl').value.trim();
+                const mediaCaption = document.getElementById('mediaCaption').value.trim();
+                
+                if (!mediaUrl) {
+                    showStatus('❌ Por favor ingresa una URL de archivo', 'error');
+                    return;
+                }
+                
+                content.media = { url: mediaUrl };
+                if (mediaCaption) content.media.caption = mediaCaption;
+            }
+
+            log(`📤 Enviando mensaje ${messageType} a +${recipientNumber}...`, '#2196F3');
+            
+            try {
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/sessions/${currentSessionId}/send-message`,
+                    'POST',
+                    {
+                        to: recipientNumber,
+                        type: messageType,
+                        content: content
+                    }
+                );
+
+                log(`✅ ¡Mensaje enviado exitosamente!`, '#4CAF50');
+                log(`   📧 ID del mensaje: ${response.data.messageId}`, '#666');
+                showStatus('✅ ¡Mensaje enviado exitosamente!', 'success');
+
+                // Limpiar formulario
+                if (messageType === 'text') {
+                    document.getElementById('messageText').value = '';
+                } else {
+                    document.getElementById('mediaUrl').value = '';
+                    document.getElementById('mediaCaption').value = '';
+                }
+
+            } catch (error) {
+                log(`❌ Error al enviar mensaje: ${error.message}`, '#f44336');
+                showStatus(`❌ Error: ${error.message}`, 'error');
+                
+                if (error.message.includes('not connected')) {
+                    log('💡 Asegúrate de que la sesión esté conectada primero', '#FF9800');
+                }
+            }
+        }
+
+        // Debug API
+        async function debugAPI() {
+            log('🔧 === DEBUG API ===', '#9C27B0');
+            
+            try {
+                // Test health
+                const health = await fetch(`${getApiUrl()}/health`);
+                const healthData = await health.json();
+                log(`🏥 Health: ${healthData.status}`, '#4CAF50');
+                
+                // Test sessions
+                const sessions = await makeRequest(`${getApiUrl()}/api/v1/sessions`);
+                log(`📱 Sesiones disponibles: ${sessions.data.length}`, '#2196F3');
+                sessions.data.forEach((s, i) => {
+                    log(`   ${i+1}. ${s.sessionName} (${s.status}) - ${s.id.slice(0, 8)}...`, '#666');
+                });
+                
+            } catch (error) {
+                log(`❌ Debug falló: ${error.message}`, '#f44336');
+            }
+            
+            log('🔧 === FIN DEBUG ===', '#9C27B0');
+        }
+
+        // Inicializar la aplicación
+        window.onload = function() {
+            log('🚀 Interface de prueba iniciada', '#4CAF50');
+            log('💡 Para empezar: 1) Test conexión → 2) Crear sesión → 3) Conectar → 4) Escanear QR → 5) Enviar mensaje', '#2196F3');
+            
+            // Generar nombre automáticamente
+            document.getElementById('sessionName').value = generateSessionName();
+            
+            // Test conexión automático
+            setTimeout(testConnection, 1000);
+            setTimeout(refreshSessions, 2000);
+        };
+
+        // Función para llamar a Gemini API
+        async function callGemini(userMessage) {
+            const prompt = document.getElementById('geminiPrompt').value.trim();
+            
+            if (!prompt) {
+                throw new Error('Prompt de Gemini no configurado');
+            }
+
+            const apiKey = 'AIzaSyAKq_7car-bCXq9sOEPKMiua5OXh3--UTY';
+            const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
+            const requestBody = {
+                contents: [{
+                    parts: [{
+                        text: `${prompt}\n\nMensaje del usuario: ${userMessage}`
+                    }]
+                }]
+            };
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': apiKey,
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Gemini API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.candidates[0].content.parts[0].text;
+        }
+
+        // Test Gemini function - usar backend endpoint
+        async function testGemini() {
+            try {
+                log('🧪 Testing Gemini API through backend...', '#2196F3');
+                
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/auto-response/test`,
+                    'POST',
+                    { message: 'Hola setter, este es un mensaje de prueba' }
+                );
+                
+                log(`✅ Gemini test successful!`, '#4CAF50');
+                log(`📝 Input: ${response.data.input}`, '#666');
+                log(`🤖 Output: ${response.data.output}`, '#25D366');
+                
+            } catch (error) {
+                log(`❌ Error testing Gemini: ${error.message}`, '#f44336');
+            }
+        }
+
+        // Actualizar configuración de auto-respuesta
+        async function updateAutoResponseConfig() {
+            try {
+                const triggerWord = document.getElementById('triggerWord').value.trim();
+                const prompt = document.getElementById('geminiPrompt').value.trim();
+                const enabled = document.getElementById('autoResponseEnabled').checked;
+
+                if (!triggerWord || !prompt) {
+                    log('❌ Trigger word y prompt son requeridos', '#f44336');
+                    return;
+                }
+
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/auto-response/config`,
+                    'POST',
+                    {
+                        enabled,
+                        triggerWord,
+                        prompt
+                    }
+                );
+
+                log(`✅ Auto-respuesta configurada: trigger="${triggerWord}", enabled=${enabled}`, '#4CAF50');
+                log(`🧠 Prompt actualizado exitosamente`, '#2196F3');
+
+            } catch (error) {
+                log(`❌ Error actualizando configuración: ${error.message}`, '#f44336');
+            }
+        }
+
+        // Auto-actualizar configuración cuando cambien los campos
+        document.addEventListener('DOMContentLoaded', function() {
+            const triggerInput = document.getElementById('triggerWord');
+            const promptTextarea = document.getElementById('geminiPrompt');
+            const enabledCheckbox = document.getElementById('autoResponseEnabled');
+
+            // Debounce function para evitar múltiples calls
+            let configTimeout;
+            function debouncedUpdate() {
+                clearTimeout(configTimeout);
+                configTimeout = setTimeout(updateAutoResponseConfig, 1000);
+            }
+
+            if (triggerInput) triggerInput.addEventListener('input', debouncedUpdate);
+            if (promptTextarea) promptTextarea.addEventListener('input', debouncedUpdate);
+            if (enabledCheckbox) enabledCheckbox.addEventListener('change', updateAutoResponseConfig);
+            
+            // Cargar configuración inicial
+            updateAutoResponseConfig();
+        });
+
+        // Limpiar intervalos al cerrar
+        window.onbeforeunload = function() {
+            stopStatusCheck();
+        };
+    </script>
+</body>
+</html>

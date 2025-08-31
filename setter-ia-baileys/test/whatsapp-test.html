@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setter IA Baileys - Test Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #25D366;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+
+        .panel {
+            padding: 30px;
+        }
+
+        .panel:first-child {
+            border-right: 1px solid #eee;
+        }
+
+        .panel h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .step {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #25D366;
+        }
+
+        .step h3 {
+            color: #25D366;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none;
+            border-color: #25D366;
+        }
+
+        .btn {
+            background: #25D366;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            background: #20b954;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .qr-container {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .qr-container img {
+            max-width: 250px;
+            max-height: 250px;
+            border-radius: 8px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 600;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #cce7ff;
+            color: #004085;
+            border: 1px solid #b3d7ff;
+        }
+
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .config-section {
+            background: #e9ecef;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .config-section h4 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .icon {
+            width: 24px;
+            height: 24px;
+            display: inline-block;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            
+            .panel:first-child {
+                border-right: none;
+                border-bottom: 1px solid #eee;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Setter IA Baileys</h1>
+            <p>Interface de Prueba - Multi-User WhatsApp API</p>
+        </div>
+
+        <div class="content">
+            <!-- Panel de Configuración y Conexión -->
+            <div class="panel">
+                <h2>
+                    <span class="icon">⚙️</span>
+                    Configuración & Conexión
+                </h2>
+
+                <!-- Configuración de API -->
+                <div class="config-section">
+                    <h4>Configuración de API</h4>
+                    <div class="form-group">
+                        <label for="apiUrl">URL Base de la API:</label>
+                        <input type="text" id="apiUrl" value="http://localhost:3001">
+                    </div>
+                    <div class="form-group">
+                        <label for="apiKey">API Key:</label>
+                        <input type="text" id="apiKey" value="test-api-key-12345">
+                    </div>
+                </div>
+
+                <!-- Paso 1: Crear Sesión -->
+                <div class="step">
+                    <h3>📱 Paso 1: Crear Sesión</h3>
+                    <div class="form-group">
+                        <label for="sessionName">Nombre de la Sesión:</label>
+                        <input type="text" id="sessionName" value="test-session" placeholder="Ej: mi-whatsapp">
+                    </div>
+                    <div class="form-group">
+                        <label for="phoneNumber">Número de Teléfono (opcional):</label>
+                        <input type="text" id="phoneNumber" placeholder="+1234567890">
+                        <small style="color: #666;">Para código de emparejamiento en lugar de QR</small>
+                    </div>
+                    <button class="btn" onclick="createSession()">Crear Sesión</button>
+                </div>
+
+                <!-- Paso 2: Conectar -->
+                <div class="step">
+                    <h3>🔗 Paso 2: Conectar</h3>
+                    <div class="form-group">
+                        <label for="selectedSession">Sesión:</label>
+                        <select id="selectedSession">
+                            <option value="">Selecciona una sesión</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="connectSession()">Conectar Sesión</button>
+                    <button class="btn btn-secondary" onclick="refreshSessions()">Actualizar Lista</button>
+                </div>
+
+                <!-- QR Code / Pairing Code -->
+                <div id="authContainer" style="display: none;">
+                    <div class="step">
+                        <h3>📲 Paso 3: Autenticación</h3>
+                        <div id="qrContainer" class="qr-container" style="display: none;">
+                            <p>Escanea este código QR con WhatsApp:</p>
+                            <img id="qrImage" alt="QR Code">
+                            <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                                Ve a WhatsApp → Dispositivos vinculados → Vincular un dispositivo
+                            </p>
+                        </div>
+                        <div id="pairingContainer" style="display: none;">
+                            <p>Código de emparejamiento:</p>
+                            <h2 id="pairingCode" style="font-family: monospace; color: #25D366; margin: 10px 0;"></h2>
+                            <p style="font-size: 12px; color: #666;">
+                                Ve a WhatsApp → Dispositivos vinculados → Vincular un dispositivo → Vincular con número de teléfono
+                            </p>
+                        </div>
+                        <button class="btn btn-secondary" onclick="checkConnectionStatus()">Verificar Estado</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Mensajería -->
+            <div class="panel">
+                <h2>
+                    <span class="icon">💬</span>
+                    Enviar Mensajes
+                </h2>
+
+                <!-- Paso 4: Enviar Mensaje -->
+                <div class="step">
+                    <h3>📤 Enviar Mensaje de Prueba</h3>
+                    <div class="form-group">
+                        <label for="recipientNumber">Número de Destino:</label>
+                        <input type="text" id="recipientNumber" placeholder="1234567890" maxlength="15">
+                        <small style="color: #666;">Solo números, sin + ni espacios</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="messageType">Tipo de Mensaje:</label>
+                        <select id="messageType" onchange="toggleMessageContent()">
+                            <option value="text">Texto</option>
+                            <option value="image">Imagen</option>
+                            <option value="document">Documento</option>
+                        </select>
+                    </div>
+                    <div id="textContent">
+                        <div class="form-group">
+                            <label for="messageText">Mensaje:</label>
+                            <textarea id="messageText" rows="4" placeholder="Hola! Este es un mensaje de prueba desde Setter IA Baileys 🚀"></textarea>
+                        </div>
+                    </div>
+                    <div id="mediaContent" style="display: none;">
+                        <div class="form-group">
+                            <label for="mediaUrl">URL del archivo:</label>
+                            <input type="url" id="mediaUrl" placeholder="https://ejemplo.com/imagen.jpg">
+                        </div>
+                        <div class="form-group">
+                            <label for="mediaCaption">Descripción (opcional):</label>
+                            <input type="text" id="mediaCaption" placeholder="Descripción del archivo">
+                        </div>
+                    </div>
+                    <button class="btn" onclick="sendMessage()">Enviar Mensaje</button>
+                </div>
+
+                <!-- Estado de la Sesión -->
+                <div class="step">
+                    <h3>📊 Estado de la Sesión</h3>
+                    <div id="sessionStatus" class="status info">
+                        Selecciona una sesión para ver su estado
+                    </div>
+                    <button class="btn btn-secondary" onclick="getSessionInfo()">Actualizar Estado</button>
+                </div>
+
+                <!-- Log de Actividades -->
+                <div class="step">
+                    <h3>📋 Log de Actividades</h3>
+                    <div id="activityLog" class="log">
+                        Sistema iniciado. Listo para crear sesiones...<br>
+                    </div>
+                    <button class="btn btn-secondary" onclick="clearLog()">Limpiar Log</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let currentSessionId = null;
+        let checkInterval = null;
+
+        // Funciones de utilidad
+        function log(message) {
+            const logElement = document.getElementById('activityLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `<span style="color: #666;">[${timestamp}]</span> ${message}<br>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusElement = document.getElementById('sessionStatus');
+            statusElement.className = `status ${type}`;
+            statusElement.textContent = message;
+        }
+
+        function getApiUrl() {
+            return document.getElementById('apiUrl').value.trim();
+        }
+
+        function getApiKey() {
+            return document.getElementById('apiKey').value.trim();
+        }
+
+        function toggleMessageContent() {
+            const messageType = document.getElementById('messageType').value;
+            const textContent = document.getElementById('textContent');
+            const mediaContent = document.getElementById('mediaContent');
+
+            if (messageType === 'text') {
+                textContent.style.display = 'block';
+                mediaContent.style.display = 'none';
+            } else {
+                textContent.style.display = 'none';
+                mediaContent.style.display = 'block';
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('activityLog').innerHTML = 'Log limpiado...<br>';
+        }
+
+        // Función para hacer peticiones HTTP
+        async function makeRequest(url, method = 'GET', body = null) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-API-Key': getApiKey()
+            };
+
+            const config = { method, headers };
+            if (body) {
+                config.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(url, config);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error?.message || `HTTP ${response.status}`);
+                }
+                
+                return data;
+            } catch (error) {
+                console.error('Request failed:', error);
+                throw error;
+            }
+        }
+
+        // Paso 1: Crear sesión
+        async function createSession() {
+            const sessionName = document.getElementById('sessionName').value.trim();
+            const phoneNumber = document.getElementById('phoneNumber').value.trim();
+
+            if (!sessionName) {
+                showStatus('Por favor ingresa un nombre de sesión', 'error');
+                return;
+            }
+
+            log(`Creando sesión: ${sessionName}...`);
+            
+            try {
+                const body = { sessionName };
+                if (phoneNumber) {
+                    body.phoneNumber = phoneNumber;
+                }
+
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/sessions`,
+                    'POST',
+                    body
+                );
+
+                log(`✅ Sesión creada exitosamente: ${response.data.id}`);
+                showStatus(`Sesión "${sessionName}" creada exitosamente`, 'success');
+                
+                await refreshSessions();
+                
+                // Seleccionar la sesión recién creada
+                document.getElementById('selectedSession').value = response.data.id;
+                currentSessionId = response.data.id;
+
+            } catch (error) {
+                log(`❌ Error al crear sesión: ${error.message}`);
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Refrescar lista de sesiones
+        async function refreshSessions() {
+            log('Actualizando lista de sesiones...');
+            
+            try {
+                const response = await makeRequest(`${getApiUrl()}/api/v1/sessions`);
+                const sessions = response.data;
+                
+                const select = document.getElementById('selectedSession');
+                select.innerHTML = '<option value="">Selecciona una sesión</option>';
+                
+                sessions.forEach(session => {
+                    const option = document.createElement('option');
+                    option.value = session.id;
+                    option.textContent = `${session.sessionName} (${session.status})`;
+                    select.appendChild(option);
+                });
+
+                log(`✅ ${sessions.length} sesiones encontradas`);
+                
+            } catch (error) {
+                log(`❌ Error al obtener sesiones: ${error.message}`);
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Paso 2: Conectar sesión
+        async function connectSession() {
+            const sessionId = document.getElementById('selectedSession').value;
+            
+            if (!sessionId) {
+                showStatus('Por favor selecciona una sesión', 'error');
+                return;
+            }
+
+            currentSessionId = sessionId;
+            log(`Conectando sesión: ${sessionId}...`);
+            
+            try {
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/sessions/${sessionId}/connect`,
+                    'POST'
+                );
+
+                log(`✅ Sesión conectándose...`);
+                showStatus('Sesión conectándose... Verificando autenticación', 'info');
+                
+                // Mostrar contenedor de autenticación
+                document.getElementById('authContainer').style.display = 'block';
+                
+                // Verificar si es QR o código de emparejamiento
+                if (response.data.qrCode) {
+                    showQRCode(response.data.qrCode);
+                } else if (response.data.code) {
+                    showPairingCode(response.data.code);
+                }
+
+                // Iniciar verificación periódica del estado
+                startStatusCheck();
+
+            } catch (error) {
+                log(`❌ Error al conectar sesión: ${error.message}`);
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Mostrar código QR
+        function showQRCode(qrCode) {
+            document.getElementById('qrContainer').style.display = 'block';
+            document.getElementById('pairingContainer').style.display = 'none';
+            document.getElementById('qrImage').src = qrCode;
+            log('📱 Código QR generado. Escanéalo con WhatsApp');
+        }
+
+        // Mostrar código de emparejamiento
+        function showPairingCode(code) {
+            document.getElementById('pairingContainer').style.display = 'block';
+            document.getElementById('qrContainer').style.display = 'none';
+            document.getElementById('pairingCode').textContent = code;
+            log(`🔢 Código de emparejamiento: ${code}`);
+        }
+
+        // Verificar estado de conexión
+        async function checkConnectionStatus() {
+            if (!currentSessionId) return;
+
+            try {
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/sessions/${currentSessionId}/status`
+                );
+
+                const status = response.data.status;
+                log(`Estado de la sesión: ${status}`);
+
+                if (status === 'connected') {
+                    showStatus(`✅ Sesión conectada exitosamente!`, 'success');
+                    document.getElementById('authContainer').style.display = 'none';
+                    stopStatusCheck();
+                    log(`🎉 ¡WhatsApp conectado! Ya puedes enviar mensajes.`);
+                } else if (status === 'connecting' || status === 'pairing') {
+                    showStatus(`⏳ Conectando... Estado: ${status}`, 'warning');
+                } else if (status === 'error') {
+                    showStatus(`❌ Error en la conexión`, 'error');
+                    stopStatusCheck();
+                } else {
+                    showStatus(`Estado: ${status}`, 'info');
+                }
+
+            } catch (error) {
+                log(`❌ Error al verificar estado: ${error.message}`);
+            }
+        }
+
+        // Iniciar verificación periódica
+        function startStatusCheck() {
+            stopStatusCheck(); // Limpiar cualquier intervalo anterior
+            checkInterval = setInterval(checkConnectionStatus, 3000);
+        }
+
+        // Detener verificación periódica
+        function stopStatusCheck() {
+            if (checkInterval) {
+                clearInterval(checkInterval);
+                checkInterval = null;
+            }
+        }
+
+        // Obtener información de la sesión
+        async function getSessionInfo() {
+            if (!currentSessionId) {
+                showStatus('No hay sesión seleccionada', 'error');
+                return;
+            }
+
+            try {
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/sessions/${currentSessionId}/status`
+                );
+
+                const session = response.data;
+                showStatus(
+                    `Estado: ${session.status} | Teléfono: ${session.phoneNumber || 'N/A'} | Creada: ${new Date(session.createdAt).toLocaleString()}`, 
+                    session.status === 'connected' ? 'success' : 'info'
+                );
+                
+                log(`📊 Información actualizada: ${session.status}`);
+
+            } catch (error) {
+                log(`❌ Error al obtener info: ${error.message}`);
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Enviar mensaje
+        async function sendMessage() {
+            if (!currentSessionId) {
+                showStatus('No hay sesión activa', 'error');
+                return;
+            }
+
+            const recipientNumber = document.getElementById('recipientNumber').value.trim();
+            const messageType = document.getElementById('messageType').value;
+
+            if (!recipientNumber) {
+                showStatus('Por favor ingresa un número de destino', 'error');
+                return;
+            }
+
+            // Validar número (solo dígitos, 10-15 caracteres)
+            if (!/^\d{10,15}$/.test(recipientNumber)) {
+                showStatus('Número inválido. Usa solo dígitos (10-15 caracteres)', 'error');
+                return;
+            }
+
+            let content = {};
+            
+            if (messageType === 'text') {
+                const messageText = document.getElementById('messageText').value.trim();
+                if (!messageText) {
+                    showStatus('Por favor ingresa un mensaje', 'error');
+                    return;
+                }
+                content.text = messageText;
+            } else {
+                const mediaUrl = document.getElementById('mediaUrl').value.trim();
+                const mediaCaption = document.getElementById('mediaCaption').value.trim();
+                
+                if (!mediaUrl) {
+                    showStatus('Por favor ingresa una URL de archivo', 'error');
+                    return;
+                }
+                
+                content.media = { url: mediaUrl };
+                if (mediaCaption) content.media.caption = mediaCaption;
+            }
+
+            log(`📤 Enviando mensaje ${messageType} a +${recipientNumber}...`);
+            
+            try {
+                const response = await makeRequest(
+                    `${getApiUrl()}/api/v1/sessions/${currentSessionId}/send-message`,
+                    'POST',
+                    {
+                        to: recipientNumber,
+                        type: messageType,
+                        content: content
+                    }
+                );
+
+                log(`✅ Mensaje enviado! ID: ${response.data.messageId}`);
+                showStatus('¡Mensaje enviado exitosamente!', 'success');
+
+                // Limpiar formulario
+                if (messageType === 'text') {
+                    document.getElementById('messageText').value = '';
+                } else {
+                    document.getElementById('mediaUrl').value = '';
+                    document.getElementById('mediaCaption').value = '';
+                }
+
+            } catch (error) {
+                log(`❌ Error al enviar mensaje: ${error.message}`);
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Inicializar la aplicación
+        window.onload = function() {
+            log('🚀 Interface de prueba iniciada');
+            log('💡 Para empezar: 1) Crear sesión → 2) Conectar → 3) Escanear QR → 4) Enviar mensaje');
+            refreshSessions();
+        };
+
+        // Limpiar intervalos al cerrar
+        window.onbeforeunload = function() {
+            stopStatusCheck();
+        };
+    </script>
+</body>
+</html>

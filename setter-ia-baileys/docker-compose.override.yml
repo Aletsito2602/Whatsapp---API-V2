@@ -1,0 +1,37 @@
+# Development overrides for docker-compose
+version: '3.8'
+
+services:
+  session-manager:
+    build:
+      context: .
+      dockerfile: ./services/session-manager/Dockerfile.dev
+    volumes:
+      - ./services/session-manager/src:/app/src:ro
+      - ./shared/types:/app/shared/types:ro
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    command: npm run dev
+
+  message-gateway:
+    build:
+      context: .
+      dockerfile: ./services/message-gateway/Dockerfile.dev
+    volumes:
+      - ./services/message-gateway/src:/app/src:ro
+      - ./shared/types:/app/shared/types:ro
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    command: npm run dev
+
+  postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: setter_baileys_dev
+
+  redis:
+    ports:
+      - "6379:6379"
